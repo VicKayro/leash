@@ -7,19 +7,24 @@ npx getleash
 ```
 
 ```
-🐕 leash — agent fleet report · this machine · last 30 days
+🐕 leash · your agent fleet on this machine · last 30 days
 
-  $1581 estimated · 82 sessions · 2 Claude Code projects
+  The short version
+  Your agents did $1,599 worth of AI work across 82 sessions.
+  (That's the pay-as-you-go API value. On a subscription like Claude
+  Pro/Max you paid a flat fee — this is what your usage is worth.)
+  9 agents live here: 8 look fine, 1 needs you (fixes below).
 
-  ⚠ com.victorgalli.ceo-briefing      not loaded · daily at 07:15
-  ⚠ com.victorgalli.discord-watch     last exit 1 · monthly
-  💀 com.old.autopilot                 script missing (zombie)
+  Your scheduled agents · 7 active · 6 turned off on purpose
+  ✓ com.kayro.demand-radar          every 30min
+  ⚠ com.victorgalli.daily-watch     last run failed
+  💀 com.old.autopilot               zombie — script is gone
 
-  3 things to fix:
+  To fix (1) — copy-paste the command under each one
 
-  1. com.victorgalli.ceo-briefing is not loaded
-     The schedule file exists (daily at 07:15) but macOS isn't running it. Load it:
-     launchctl bootstrap gui/$(id -u) "~/Library/LaunchAgents/com.victorgalli.ceo-briefing.plist"
+  1. com.victorgalli.daily-watch failed its last run
+     It's still scheduled (monthly) but the last run crashed (exit code 1). See why:
+     tail -20 "~/Library/Logs/daily-watch.err.log"
 ```
 
 Every warning comes with the exact command to fix it. Copy, paste, done.

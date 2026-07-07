@@ -39,6 +39,7 @@ export interface FleetReport {
     totalCostUSD: number
     totalSessions: number
     projects: ProjectStats[]
+    inactiveProjects: number
     loops: LoopIncident[]
   }
   scheduled: ScheduledAgent[]

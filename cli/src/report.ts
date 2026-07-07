@@ -1,4 +1,4 @@
-import type { FleetReport } from './types'
+import type { FleetReport, ScheduledAgent } from './types'
 
 const useColor = process.stdout.isTTY && !process.env.NO_COLOR
 const c = {
@@ -10,122 +10,31 @@ const c = {
   cyan: (s: string) => (useColor ? `\x1b[36m${s}\x1b[0m` : s),
 }
 
-const usd = (n: number) => '$' + (n >= 100 ? n.toFixed(0) : n.toFixed(2))
+const usd = (n: number) => '$' + (n >= 100 ? Math.round(n).toLocaleString('en-US') : n.toFixed(2))
 const num = (n: number) => n.toLocaleString('en-US')
 
 function days(sec: number): string {
-  if (sec >= 86400) return `${Math.round(sec / 86400)}d`
-  if (sec >= 3600) return `${Math.round(sec / 3600)}h`
-  return `${Math.round(sec / 60)}min`
+  if (sec >= 86400) return `${Math.round(sec / 86400)} days`
+  if (sec >= 3600) return `${Math.round(sec / 3600)} hours`
+  return `${Math.round(sec / 60)} minutes`
 }
 
 export function agentCount(r: FleetReport): number {
   return r.claude.projects.length + r.scheduled.filter((a) => !a.disabled).length
 }
 
-export function warningCount(r: FleetReport): number {
-  return (
-    r.claude.loops.length +
-    r.scheduled.filter(
-      (a) =>
-        !a.disabled &&
-        (a.zombie ||
-          a.silentForSec !== null ||
-          (a.lastExitCode ?? 0) !== 0 ||
-          (!a.loaded && a.source === 'launchd')),
-    ).length
-  )
+interface Action {
+  title: string
+  why: string
+  cmd: string | null
 }
 
-export function renderReport(r: FleetReport): string {
-  const L: string[] = []
-  const push = (s = '') => L.push(s)
-
-  push()
-  push(c.bold('🐕 leash') + c.dim(` — agent fleet report · this machine · last ${r.windowDays} days`))
-  push()
-
-  // Claude Code section
-  if (!r.claude.available) {
-    push(c.dim('  No Claude Code activity found (~/.claude/projects missing).'))
-  } else {
-    push(
-      '  ' +
-        c.bold(usd(r.claude.totalCostUSD)) +
-        c.dim(' estimated · ') +
-        c.bold(num(r.claude.totalSessions)) +
-        c.dim(' sessions · ') +
-        c.bold(String(r.claude.projects.length)) +
-        c.dim(' Claude Code projects'),
-    )
-    const top = r.claude.projects.slice(0, 8)
-    if (top.length) {
-      push()
-      const w = Math.max(...top.map((p) => p.name.length))
-      for (const p of top) {
-        push(
-          '  ' +
-            c.cyan(p.name.padEnd(w + 2)) +
-            usd(p.costUSD).padStart(8) +
-            c.dim(`  ${num(p.sessions)} sessions`),
-        )
-      }
-      const rest = r.claude.projects.length - top.length
-      if (rest > 0) push(c.dim(`  … and ${rest} more`))
-    }
-    if (r.claude.loops.length) {
-      push()
-      push('  ' + c.yellow(`⚠ ${r.claude.loops.length} possible loop${r.claude.loops.length > 1 ? 's' : ''} detected:`))
-      for (const l of r.claude.loops.slice(0, 5)) {
-        push(
-          '    ' +
-            c.yellow('⚠ ') +
-            `${l.project} · ${l.date} · ${l.tool} repeated ${c.bold(String(l.count))}× ` +
-            c.dim(`(~${usd(l.estCostUSD)})`),
-        )
-      }
-    }
-  }
-
-  // Scheduled agents section
-  push()
-  const active = r.scheduled.filter((a) => !a.disabled)
-  const disabled = r.scheduled.filter((a) => a.disabled)
-  push(c.bold(`  Scheduled agents`) + c.dim(` (launchd + cron): ${active.length} active${disabled.length ? `, ${disabled.length} disabled` : ''}`))
-  push()
-  for (const a of active) {
-    let icon = c.green('✓')
-    let note = c.dim(a.schedule)
-    if (a.zombie) {
-      icon = c.red('💀')
-      note = c.red(`script missing: ${a.missingPath}`)
-    } else if (a.silentForSec !== null) {
-      icon = c.yellow('⚠')
-      note = c.yellow(`silent for ${days(a.silentForSec)} (expected ${a.schedule})`)
-    } else if ((a.lastExitCode ?? 0) !== 0) {
-      icon = c.yellow('⚠')
-      note = c.yellow(`last exit ${a.lastExitCode} · ${a.schedule}`)
-    } else if (!a.loaded && a.source === 'launchd') {
-      icon = c.yellow('⚠')
-      note = c.yellow(`not loaded · ${a.schedule}`)
-    }
-    push(`  ${icon} ${a.label}  ${note}`)
-  }
-  if (disabled.length) {
-    for (const a of disabled) push(c.dim(`  ○ ${a.label}  disabled`))
-  }
-
-  // Fix-it section: every warning becomes an action with a copy-pasteable command.
-  interface Action {
-    title: string
-    why: string
-    cmd: string | null
-  }
+function buildActions(r: FleetReport): Action[] {
   const actions: Action[] = []
   for (const l of r.claude.loops) {
     actions.push({
-      title: `Loop in ${l.project} (${l.date})`,
-      why: `${l.tool} ran ${l.count}× with the exact same input — that's ~$${l.estCostUSD.toFixed(2)} likely burned for nothing. Worth checking what happened before it repeats.`,
+      title: `A session in ${l.project} looped (${l.date})`,
+      why: `${l.tool} ran ${l.count}× with the exact same input — that's ~${usd(l.estCostUSD)} likely burned for nothing. Worth checking what happened before it repeats.`,
       cmd: `claude --resume ${l.sessionId}`,
     })
   }
@@ -140,13 +49,13 @@ export function renderReport(r: FleetReport): string {
     } else if (a.silentForSec !== null) {
       actions.push({
         title: `${a.label} looks dead`,
-        why: `Its log hasn't moved even though it should run ${a.schedule}. Check what its last run said:`,
+        why: `Its log hasn't moved in ${days(a.silentForSec)} even though it should run ${a.schedule}. Check what its last run said:`,
         cmd: a.logPath ? `tail -20 "${a.logPath}"` : null,
       })
     } else if ((a.lastExitCode ?? 0) !== 0) {
       actions.push({
-        title: `${a.label} failed its last run (exit ${a.lastExitCode})`,
-        why: `It's still scheduled (${a.schedule}) but the last run crashed. See why:`,
+        title: `${a.label} failed its last run`,
+        why: `It's still scheduled (${a.schedule}) but the last run crashed (exit code ${a.lastExitCode}). See why:`,
         cmd: a.logPath ? `tail -20 "${a.logPath}"` : null,
       })
     } else if (!a.loaded && a.source === 'launchd') {
@@ -157,22 +66,124 @@ export function renderReport(r: FleetReport): string {
       })
     }
   }
+  return actions
+}
+
+export function warningCount(r: FleetReport): number {
+  return buildActions(r).length
+}
+
+function agentStatus(a: ScheduledAgent): { icon: string; note: string } {
+  if (a.zombie) return { icon: c.red('💀'), note: c.red('zombie — script is gone') }
+  if (a.silentForSec !== null) return { icon: c.yellow('⚠'), note: c.yellow(`silent for ${days(a.silentForSec)}`) }
+  if ((a.lastExitCode ?? 0) !== 0) return { icon: c.yellow('⚠'), note: c.yellow('last run failed') }
+  if (!a.loaded && a.source === 'launchd') return { icon: c.yellow('⚠'), note: c.yellow('not running') }
+  return { icon: c.green('✓'), note: c.dim(a.schedule) }
+}
+
+export function renderReport(r: FleetReport): string {
+  const L: string[] = []
+  const push = (s = '') => L.push(s)
+  const actions = buildActions(r)
+  const active = r.scheduled.filter((a) => !a.disabled)
+  const disabled = r.scheduled.filter((a) => a.disabled)
+  const totalAgents = r.claude.projects.length + active.length
 
   push()
+  push(c.bold('🐕 leash') + c.dim(` · your agent fleet on this machine · last ${r.windowDays} days`))
+  push()
+
+  // ── The short version ────────────────────────────────────────────
+  push('  ' + c.bold('The short version'))
+  if (r.claude.available && r.claude.totalCostUSD > 0) {
+    push(
+      `  Your agents did ` +
+        c.bold(usd(r.claude.totalCostUSD)) +
+        ` worth of AI work across ${num(r.claude.totalSessions)} sessions.`,
+    )
+    push(
+      c.dim(`  (That's the pay-as-you-go API value. On a subscription like Claude`),
+    )
+    push(c.dim(`  Pro/Max you paid a flat fee — this is what your usage is worth.)`))
+  } else {
+    push('  No Claude Code activity found on this machine in this window.')
+  }
+  if (totalAgents > 0) {
+    const healthy = totalAgents - actions.length
+    if (actions.length === 0) {
+      push(`  ${c.bold(String(totalAgents))} agents live here and ` + c.green('all of them look fine right now.'))
+    } else {
+      push(
+        `  ${c.bold(String(totalAgents))} agents live here: ${healthy} look fine, ` +
+          c.yellow(c.bold(`${actions.length} need${actions.length === 1 ? 's' : ''} you`)) +
+          ` (fixes below).`,
+      )
+    }
+  }
+
+  // ── Money ────────────────────────────────────────────────────────
+  if (r.claude.available && r.claude.projects.length > 0) {
+    push()
+    push('  ' + c.bold('Where the money went'))
+    const top = r.claude.projects.slice(0, 8)
+    const w = Math.max(...top.map((p) => p.name.length))
+    for (const p of top) {
+      push(
+        '  ' +
+          c.cyan(p.name.padEnd(w + 2)) +
+          usd(p.costUSD).padStart(8) +
+          c.dim(`  ${num(p.sessions)} session${p.sessions > 1 ? 's' : ''}`),
+      )
+    }
+    const rest = r.claude.projects.length - top.length
+    if (rest > 0) push(c.dim(`  … and ${rest} more active project${rest > 1 ? 's' : ''}`))
+    if (r.claude.inactiveProjects > 0) {
+      push(
+        c.dim(
+          `  ${r.claude.inactiveProjects} other project${r.claude.inactiveProjects > 1 ? 's' : ''} had no activity in the last ${r.windowDays} days (not counted).`,
+        ),
+      )
+    }
+    push(c.dim(`  "~ (home)" = sessions started from your home folder rather than a project.`))
+  }
+
+  // ── Scheduled agents ─────────────────────────────────────────────
+  push()
+  push(
+    '  ' +
+      c.bold('Your scheduled agents') +
+      c.dim(` · ${active.length} active${disabled.length ? ` · ${disabled.length} turned off on purpose` : ''}`),
+  )
+  for (const a of active) {
+    const { icon, note } = agentStatus(a)
+    push(`  ${icon} ${a.label}  ${note}`)
+  }
+  if (disabled.length) push(c.dim(`  ○ turned off: ${disabled.map((a) => a.label.replace(/^com\.[^.]+\./, '')).join(', ')}`))
+
+  // ── Fixes ────────────────────────────────────────────────────────
+  push()
   if (actions.length > 0) {
-    push('  ' + c.bold(c.yellow(`${actions.length} thing${actions.length > 1 ? 's' : ''} to fix:`)))
+    push('  ' + c.bold(c.yellow(`To fix (${actions.length}) — copy-paste the command under each one`)))
     actions.forEach((a, i) => {
       push()
       push(`  ${i + 1}. ` + c.bold(a.title))
-      push('     ' + c.dim(a.why))
+      push('     ' + a.why)
       if (a.cmd) push('     ' + c.cyan(a.cmd))
     })
   } else {
-    push('  ' + c.green('All quiet. ') + c.dim('Be told when that changes:'))
+    push('  ' + c.green('Nothing to fix. ') + c.dim('Enjoy it while it lasts.'))
   }
+
+  // ── Scope + CTA ──────────────────────────────────────────────────
   push()
-  push(c.dim('  → npx getleash --share to post your fleet card'))
-  push(c.dim('  → npx getleash connect — be alerted when a cron dies or a loop starts (waitlist)'))
+  push(
+    c.dim('  Heads-up: leash only sees THIS machine. Agents running in the cloud'),
+  )
+  push(
+    c.dim('  (GitHub Actions, Vercel crons, servers) are invisible here — watching'),
+  )
+  push(c.dim('  those too is what leash cloud is for: ') + c.cyan('npx getleash connect'))
+  push(c.dim('  Share your fleet card: ') + c.cyan('npx getleash --share'))
   push()
   return L.join('\n')
 }

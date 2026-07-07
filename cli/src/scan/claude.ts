@@ -14,6 +14,7 @@ export interface ClaudeScanResult {
   totalCostUSD: number
   totalSessions: number
   projects: ProjectStats[]
+  inactiveProjects: number // projects with history but no activity in the window
   loops: LoopIncident[]
 }
 
@@ -100,7 +101,7 @@ async function scanFile(
 export async function scanClaude(windowDays: number): Promise<ClaudeScanResult> {
   const projectsDir = path.join(configDir(), 'projects')
   if (!fs.existsSync(projectsDir)) {
-    return { available: false, totalCostUSD: 0, totalSessions: 0, projects: [], loops: [] }
+    return { available: false, totalCostUSD: 0, totalSessions: 0, projects: [], inactiveProjects: 0, loops: [] }
   }
 
   const cutoffMs = Date.now() - windowDays * 86_400_000
@@ -108,6 +109,7 @@ export async function scanClaude(windowDays: number): Promise<ClaudeScanResult> 
   const loops: LoopIncident[] = []
   const seenRequests = new Set<string>()
   let totalSessions = 0
+  let inactiveProjects = 0
 
   for (const dirName of fs.readdirSync(projectsDir)) {
     const dir = path.join(projectsDir, dirName)
@@ -117,6 +119,8 @@ export async function scanClaude(windowDays: number): Promise<ClaudeScanResult> 
     } catch {
       continue
     }
+    const hadHistory = files.length > 0
+    let hadRecent = false
     for (const f of files) {
       const file = path.join(dir, f)
       let stat: fs.Stats
@@ -126,6 +130,7 @@ export async function scanClaude(windowDays: number): Promise<ClaudeScanResult> 
         continue
       }
       if (stat.mtimeMs < cutoffMs) continue
+      hadRecent = true
 
       let proj = projects.get(dirName)
       if (!proj) {
@@ -170,6 +175,7 @@ export async function scanClaude(windowDays: number): Promise<ClaudeScanResult> 
         }
       }
     }
+    if (hadHistory && !hadRecent) inactiveProjects++
   }
 
   const list = [...projects.values()].sort((a, b) => b.costUSD - a.costUSD)
@@ -179,6 +185,7 @@ export async function scanClaude(windowDays: number): Promise<ClaudeScanResult> 
     totalCostUSD: list.reduce((s, p) => s + p.costUSD, 0),
     totalSessions,
     projects: list,
+    inactiveProjects,
     loops: loops.sort((a, b) => b.count - a.count),
   }
 }
