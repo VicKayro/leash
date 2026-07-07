@@ -29,6 +29,10 @@ interface Action {
   cmd: string | null
 }
 
+// Single-quote a path for safe copy-pasting into a shell, even if the
+// filename contains $(), backticks or quotes.
+const shq = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`
+
 function buildActions(r: FleetReport): Action[] {
   const actions: Action[] = []
   for (const l of r.claude.loops) {
@@ -44,25 +48,25 @@ function buildActions(r: FleetReport): Action[] {
       actions.push({
         title: `${a.label} is a zombie`,
         why: `It points to a script that no longer exists (${a.missingPath}). It will never run again — remove it or fix the path.`,
-        cmd: a.plistPath ? `launchctl bootout gui/$(id -u) "${a.plistPath}" 2>/dev/null; rm "${a.plistPath}"` : null,
+        cmd: a.plistPath ? `launchctl bootout gui/$(id -u) ${shq(a.plistPath)} 2>/dev/null; rm ${shq(a.plistPath)}` : null,
       })
     } else if (a.silentForSec !== null) {
       actions.push({
         title: `${a.label} looks dead`,
         why: `Its log hasn't moved in ${days(a.silentForSec)} even though it should run ${a.schedule}. Check what its last run said:`,
-        cmd: a.logPath ? `tail -20 "${a.logPath}"` : null,
+        cmd: a.logPath ? `tail -20 ${shq(a.logPath)}` : null,
       })
     } else if ((a.lastExitCode ?? 0) !== 0) {
       actions.push({
         title: `${a.label} failed its last run`,
         why: `It's still scheduled (${a.schedule}) but the last run crashed (exit code ${a.lastExitCode}). See why:`,
-        cmd: a.logPath ? `tail -20 "${a.logPath}"` : null,
+        cmd: a.logPath ? `tail -20 ${shq(a.logPath)}` : null,
       })
     } else if (!a.loaded && a.source === 'launchd') {
       actions.push({
         title: `${a.label} is not loaded`,
         why: `The schedule file exists (${a.schedule}) but macOS isn't running it. Load it:`,
-        cmd: a.plistPath ? `launchctl bootstrap gui/$(id -u) "${a.plistPath}"` : null,
+        cmd: a.plistPath ? `launchctl bootstrap gui/$(id -u) ${shq(a.plistPath)}` : null,
       })
     }
   }
@@ -119,6 +123,12 @@ export function renderReport(r: FleetReport): string {
           ` (fixes below).`,
       )
     }
+    if (r.cloud.length > 0) {
+      push(
+        `  Plus ${c.bold(String(r.cloud.length))} agents scheduled in the cloud ` +
+          c.dim('(found in your repos — health unknown from here).'),
+      )
+    }
   }
 
   // ── Money ────────────────────────────────────────────────────────
@@ -159,6 +169,23 @@ export function renderReport(r: FleetReport): string {
     push(`  ${icon} ${a.label}  ${note}`)
   }
   if (disabled.length) push(c.dim(`  ○ turned off: ${disabled.map((a) => a.label.replace(/^com\.[^.]+\./, '')).join(', ')}`))
+
+  // ── Cloud-scheduled agents (defined in local repos) ──────────────
+  if (r.cloud.length > 0) {
+    push()
+    push('  ' + c.bold('Cloud-scheduled agents found in your repos') + c.dim(` · ${r.cloud.length}`))
+    for (const a of r.cloud.slice(0, 10)) {
+      push(
+        '  ' +
+          c.dim('⟳ ') +
+          `${a.repo}/${a.name}` +
+          c.dim(`  ${a.kind === 'github-actions' ? 'GitHub Actions' : 'Vercel cron'}${a.schedule ? ` · ${a.schedule}` : ''}`),
+      )
+    }
+    if (r.cloud.length > 10) push(c.dim(`  … and ${r.cloud.length - 10} more`))
+    push(c.dim("  These run in the cloud — leash can't tell from this machine if they're"))
+    push(c.dim('  actually alive. Watching them is what leash cloud is for.'))
+  }
 
   // ── Fixes ────────────────────────────────────────────────────────
   push()

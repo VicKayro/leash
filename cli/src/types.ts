@@ -1,10 +1,18 @@
 export interface ProjectStats {
   name: string
   dir: string
+  cwd: string | null // real working directory, from the first transcript entry seen
   costUSD: number
   sessions: number
   messages: number
   lastActivity: number // epoch ms
+}
+
+export interface CloudAgent {
+  repo: string // folder name of the local repo
+  kind: 'github-actions' | 'vercel-cron'
+  name: string // workflow file or cron path
+  schedule: string | null
 }
 
 export interface LoopIncident {
@@ -18,7 +26,7 @@ export interface LoopIncident {
 
 export interface ScheduledAgent {
   label: string
-  source: 'launchd' | 'cron'
+  source: 'launchd' | 'cron' | 'systemd'
   schedule: string
   intervalSec: number | null
   loaded: boolean
@@ -43,4 +51,5 @@ export interface FleetReport {
     loops: LoopIncident[]
   }
   scheduled: ScheduledAgent[]
+  cloud: CloudAgent[]
 }

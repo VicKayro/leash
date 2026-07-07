@@ -106,6 +106,7 @@ function silentFor(p: any, intervalSec: number | null): number | null {
 }
 
 export function scanLaunchd(): ScheduledAgent[] {
+  if (process.platform !== 'darwin') return []
   const dir = path.join(os.homedir(), 'Library', 'LaunchAgents')
   if (!fs.existsSync(dir)) return []
   const status = launchctlStatus()

@@ -1,6 +1,8 @@
 import { scanClaude } from './scan/claude'
 import { scanLaunchd } from './scan/launchd'
 import { scanCron } from './scan/cron'
+import { scanSystemd } from './scan/systemd'
+import { scanCloud } from './scan/cloud'
 import { renderReport, renderShareCard } from './report'
 import type { FleetReport } from './types'
 
@@ -42,17 +44,20 @@ async function main() {
   const daysIdx = args.indexOf('--days')
   const windowDays = daysIdx >= 0 ? Math.max(1, Number(args[daysIdx + 1]) || 30) : 30
 
-  const [claude, launchd, cron] = await Promise.all([
+  const [claude, launchd, cron, systemd] = await Promise.all([
     scanClaude(windowDays),
     Promise.resolve().then(scanLaunchd),
     Promise.resolve().then(scanCron),
+    Promise.resolve().then(scanSystemd),
   ])
+  const cloud = scanCloud(claude.projects.map((p) => p.cwd))
 
   const report: FleetReport = {
     generatedAt: new Date().toISOString(),
     windowDays,
     claude,
-    scheduled: [...launchd, ...cron],
+    scheduled: [...launchd, ...systemd, ...cron],
+    cloud,
   }
 
   if (args.includes('--json')) {

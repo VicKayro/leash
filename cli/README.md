@@ -64,7 +64,8 @@ The dollar amount is what your Claude Code usage would cost at API prices over t
 ## What it scans
 
 - **Claude Code activity** (`~/.claude/projects`): estimated spend per project, sessions, and **loop detection** — the same tool call repeated 10+ times with identical input is almost never intentional, and it burns real money.
-- **Scheduled jobs** (`~/Library/LaunchAgents` + `crontab`): schedule, loaded state, last exit code, zombies, silent jobs (log untouched for 2x the expected interval). Vendor updaters (Google, Adobe...) are filtered out.
+- **Scheduled jobs**: launchd on macOS, systemd user timers on Linux (beta), crontab everywhere — schedule, loaded state, last exit code, zombies, silent jobs (log untouched for 2x the expected interval). Vendor updaters (Google, Adobe...) are filtered out.
+- **Cloud-scheduled agents defined in your local repos** (GitHub Actions `schedule:` workflows, `vercel.json` crons): listed so your fleet count is honest — leash can't tell from your machine whether those are alive. That's what the cloud version is for.
 
 ## Commands
 

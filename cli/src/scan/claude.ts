@@ -64,7 +64,10 @@ async function scanFile(
     if (entry.type !== 'assistant' || !entry.message) continue
     const ts = entry.timestamp ? Date.parse(entry.timestamp) : NaN
     if (Number.isFinite(ts) && ts < cutoffMs) continue
-    if (!proj.name && typeof entry.cwd === 'string') proj.name = nameFromCwd(entry.cwd)
+    if (!proj.name && typeof entry.cwd === 'string') {
+      proj.name = nameFromCwd(entry.cwd)
+      proj.cwd = entry.cwd
+    }
 
     // Retries, streaming and session resumes rewrite the same API response
     // into several lines or files: count each (message, request) pair once,
@@ -137,6 +140,7 @@ export async function scanClaude(windowDays: number): Promise<ClaudeScanResult> 
         proj = {
           name: '', // filled from the first cwd seen in a transcript
           dir: dirName,
+          cwd: null,
           costUSD: 0,
           sessions: 0,
           messages: 0,
