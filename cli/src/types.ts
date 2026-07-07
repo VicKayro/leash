@@ -40,6 +40,14 @@ export interface ScheduledAgent {
   logPath: string | null // error log if defined, else stdout log
 }
 
+export interface FleetInsights {
+  nightSessions: number // sessions with activity between midnight and 7am local
+  activeDays: number // distinct days with any agent activity
+  totalToolCalls: number
+  topTools: Array<{ tool: string; count: number }>
+  topSession: { project: string; date: string; costUSD: number } | null
+}
+
 export interface FleetReport {
   generatedAt: string
   windowDays: number
@@ -50,6 +58,7 @@ export interface FleetReport {
     projects: ProjectStats[]
     inactiveProjects: number
     loops: LoopIncident[]
+    insights: FleetInsights
   }
   scheduled: ScheduledAgent[]
   cloud: CloudAgent[]

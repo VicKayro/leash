@@ -157,6 +157,42 @@ export function renderReport(r: FleetReport): string {
     push(c.dim(`  "~ (home)" = sessions started from your home folder rather than a project.`))
   }
 
+  // ── Your month in agents (the mirror — interesting even when healthy) ──
+  const ins = r.claude.insights
+  if (r.claude.available && r.claude.totalSessions > 0) {
+    push()
+    push('  ' + c.bold(`Your ${r.windowDays >= 28 ? 'month' : `${r.windowDays} days`} in agents`))
+    if (ins.nightSessions > 0) {
+      push(
+        `  🌙 ${c.bold(num(ins.nightSessions))} session${ins.nightSessions > 1 ? 's' : ''} ran between midnight and 7am` +
+          c.dim(' — your agents work while you sleep'),
+      )
+    }
+    if (ins.activeDays > 0) {
+      push(`  📅 Agents active ${c.bold(String(ins.activeDays))} of the last ${r.windowDays} days`)
+    }
+    if (ins.totalToolCalls > 0) {
+      const tools = ins.topTools.map((t) => `${t.tool} ×${num(t.count)}`).join(' · ')
+      push(`  🔧 ${c.bold(num(ins.totalToolCalls))} tool calls` + (tools ? c.dim(`  (${tools})`) : ''))
+    }
+    if (ins.topSession && ins.topSession.costUSD >= 1) {
+      push(
+        `  💸 Biggest single session: ${c.bold(usd(ins.topSession.costUSD))} in ${ins.topSession.project} on ${ins.topSession.date}`,
+      )
+    }
+    const roi =
+      r.claude.totalCostUSD >= 250
+        ? { plan: 'a $200/mo Max subscription', mult: r.claude.totalCostUSD / 200 }
+        : r.claude.totalCostUSD >= 40
+          ? { plan: 'a $20/mo Pro subscription', mult: r.claude.totalCostUSD / 20 }
+          : null
+    if (roi) {
+      push(
+        `  📈 ${usd(r.claude.totalCostUSD)} of API value ≈ ${c.bold(`${roi.mult.toFixed(roi.mult >= 10 ? 0 : 1)}×`)} the price of ${roi.plan}`,
+      )
+    }
+  }
+
   // ── Scheduled agents ─────────────────────────────────────────────
   push()
   push(
@@ -216,12 +252,14 @@ export function renderReport(r: FleetReport): string {
 }
 
 export function renderShareCard(r: FleetReport): string {
-  const agents = agentCount(r)
+  const agents = agentCount(r) + r.cloud.length
   const zombies = r.scheduled.filter((a) => a.zombie).length
   const loops = r.claude.loops.length
+  const night = r.claude.insights.nightSessions
   const lines = [
     `My agent fleet 🐕`,
     `${agents} agents · ${usd(r.claude.totalCostUSD)} in ${r.windowDays} days`,
+    ...(night > 0 ? [`${num(night)} sessions ran while I slept`] : []),
     `${loops} loop${loops === 1 ? '' : 's'} caught · ${zombies} zombie cron${zombies === 1 ? '' : 's'}`,
     ``,
     `npx getleash`,
