@@ -23,7 +23,7 @@ function configDir(): string {
 
 function nameFromCwd(cwd: string): string {
   const parts = cwd.split('/').filter(Boolean)
-  if (parts.length <= 2) return '~' // home or root sessions
+  if (parts.length <= 2) return '~ (home)' // sessions started from the home folder
   return parts.slice(-2).join('/')
 }
 

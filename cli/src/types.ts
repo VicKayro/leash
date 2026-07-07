@@ -27,6 +27,8 @@ export interface ScheduledAgent {
   zombie: boolean // target script no longer exists
   missingPath: string | null
   silentForSec: number | null // log file untouched for this long (vs expected interval)
+  plistPath: string | null
+  logPath: string | null // error log if defined, else stdout log
 }
 
 export interface FleetReport {

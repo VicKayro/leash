@@ -93,7 +93,7 @@ function findMissingScript(p: any): string | null {
 
 function silentFor(p: any, intervalSec: number | null): number | null {
   if (!intervalSec) return null
-  const log = p.StandardOutPath || p.StandardErrPath
+  const log = p.StandardOutPath || p.StandardErrorPath
   if (!log || typeof log !== 'string') return null
   try {
     const ageSec = (Date.now() - fs.statSync(log).mtimeMs) / 1000
@@ -122,6 +122,7 @@ export function scanLaunchd(): ScheduledAgent[] {
     const { text, intervalSec } = describeSchedule(p)
     const st = status.get(label)
     const missingPath = findMissingScript(p)
+    const logPath = p.StandardErrorPath || p.StandardOutPath || null
     agents.push({
       label,
       source: 'launchd',
@@ -133,6 +134,8 @@ export function scanLaunchd(): ScheduledAgent[] {
       zombie: missingPath !== null,
       missingPath,
       silentForSec: disabled ? null : silentFor(p, intervalSec),
+      plistPath: path.join(dir, f),
+      logPath: typeof logPath === 'string' ? logPath : null,
     })
   }
   return agents

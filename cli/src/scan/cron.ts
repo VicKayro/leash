@@ -29,6 +29,8 @@ export function scanCron(): ScheduledAgent[] {
       zombie: scriptPath ? !fs.existsSync(scriptPath) : false,
       missingPath: scriptPath && !fs.existsSync(scriptPath) ? scriptPath : null,
       silentForSec: null,
+      plistPath: null,
+      logPath: null,
     })
   }
   return agents

@@ -115,14 +115,62 @@ export function renderReport(r: FleetReport): string {
     for (const a of disabled) push(c.dim(`  ○ ${a.label}  disabled`))
   }
 
-  // Footer
+  // Fix-it section: every warning becomes an action with a copy-pasteable command.
+  interface Action {
+    title: string
+    why: string
+    cmd: string | null
+  }
+  const actions: Action[] = []
+  for (const l of r.claude.loops) {
+    actions.push({
+      title: `Loop in ${l.project} (${l.date})`,
+      why: `${l.tool} ran ${l.count}× with the exact same input — that's ~$${l.estCostUSD.toFixed(2)} likely burned for nothing. Worth checking what happened before it repeats.`,
+      cmd: `claude --resume ${l.sessionId}`,
+    })
+  }
+  for (const a of r.scheduled) {
+    if (a.disabled) continue
+    if (a.zombie) {
+      actions.push({
+        title: `${a.label} is a zombie`,
+        why: `It points to a script that no longer exists (${a.missingPath}). It will never run again — remove it or fix the path.`,
+        cmd: a.plistPath ? `launchctl bootout gui/$(id -u) "${a.plistPath}" 2>/dev/null; rm "${a.plistPath}"` : null,
+      })
+    } else if (a.silentForSec !== null) {
+      actions.push({
+        title: `${a.label} looks dead`,
+        why: `Its log hasn't moved even though it should run ${a.schedule}. Check what its last run said:`,
+        cmd: a.logPath ? `tail -20 "${a.logPath}"` : null,
+      })
+    } else if ((a.lastExitCode ?? 0) !== 0) {
+      actions.push({
+        title: `${a.label} failed its last run (exit ${a.lastExitCode})`,
+        why: `It's still scheduled (${a.schedule}) but the last run crashed. See why:`,
+        cmd: a.logPath ? `tail -20 "${a.logPath}"` : null,
+      })
+    } else if (!a.loaded && a.source === 'launchd') {
+      actions.push({
+        title: `${a.label} is not loaded`,
+        why: `The schedule file exists (${a.schedule}) but macOS isn't running it. Load it:`,
+        cmd: a.plistPath ? `launchctl bootstrap gui/$(id -u) "${a.plistPath}"` : null,
+      })
+    }
+  }
+
   push()
-  const warns = warningCount(r)
-  if (warns > 0) {
-    push('  ' + c.yellow(`${warns} thing${warns > 1 ? 's' : ''} need${warns > 1 ? '' : 's'} your attention.`))
+  if (actions.length > 0) {
+    push('  ' + c.bold(c.yellow(`${actions.length} thing${actions.length > 1 ? 's' : ''} to fix:`)))
+    actions.forEach((a, i) => {
+      push()
+      push(`  ${i + 1}. ` + c.bold(a.title))
+      push('     ' + c.dim(a.why))
+      if (a.cmd) push('     ' + c.cyan(a.cmd))
+    })
   } else {
     push('  ' + c.green('All quiet. ') + c.dim('Be told when that changes:'))
   }
+  push()
   push(c.dim('  → npx getleash --share to post your fleet card'))
   push(c.dim('  → npx getleash connect — be alerted when a cron dies or a loop starts (waitlist)'))
   push()

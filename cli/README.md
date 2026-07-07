@@ -1,6 +1,6 @@
 # 🐕 leash
 
-**See what your agents did last night.** Fleet report for Claude Code + scheduled agents (launchd, cron) — costs, loops, dead crons, zombies. In 10 seconds, no signup, nothing leaves your machine.
+**See what your agents did last night.** One command shows you every AI agent and scheduled job on your machine: what they cost, which ones are dead, which ones went crazy. In 10 seconds, no signup, nothing leaves your computer.
 
 ```
 npx getleash
@@ -15,20 +15,57 @@ npx getleash
   ⚠ com.victorgalli.discord-watch     last exit 1 · monthly
   💀 com.old.autopilot                 script missing (zombie)
 
-  4 things need your attention.
+  3 things to fix:
+
+  1. com.victorgalli.ceo-briefing is not loaded
+     The schedule file exists (daily at 07:15) but macOS isn't running it. Load it:
+     launchctl bootstrap gui/$(id -u) "~/Library/LaunchAgents/com.victorgalli.ceo-briefing.plist"
 ```
+
+Every warning comes with the exact command to fix it. Copy, paste, done.
+
+## Who is this for?
+
+Anyone who has automated things with AI and lost track of them:
+
+- You use **Claude Code** and wonder where the money goes
+- You have **cron jobs or scheduled scripts** (agents, backups, reports) and no idea if they still run
+- You once found out an automation had been **silently broken for weeks**
+
+True story: the first ever run of leash was on its creator's machine. It found 3 daily automations that had **never run once** (a morning briefing, a backup, an alerting system) and one script crashed since July 1st. All fixed in 5 minutes with the commands leash printed.
+
+## Never used a terminal? Start here
+
+1. **Open the Terminal app.** On a Mac: press `⌘ + space`, type `terminal`, press Enter. A window with text appears — that's it.
+2. **Paste this and press Enter:**
+   ```
+   npx getleash
+   ```
+3. **If it says `command not found: npx`**: you need Node.js first (free, 2 minutes). Go to [nodejs.org](https://nodejs.org), click the big green button, install, close and reopen Terminal, try again.
+
+That's all. No account, no configuration, and the scan only *reads* — it changes nothing on your machine.
+
+## How to read your report
+
+| Symbol | Meaning |
+|---|---|
+| ✓ | This agent looks healthy |
+| ⚠ | Something's wrong (not running, crashed, or suspiciously silent) — see the "things to fix" list below it |
+| 💀 | Zombie: scheduled job pointing to a script that no longer exists |
+| ○ | Disabled on purpose, nothing to do |
+
+The dollar amount is what your Claude Code usage would cost at API prices over the last 30 days (estimated: per-model rates, cache-aware, deduplicated the same way as ccusage). If you're on a subscription plan, it's what your usage is *worth*, not what you paid.
 
 ## What it scans
 
-- **Claude Code activity** (`~/.claude/projects`): estimated spend per project (per-model rates, cache-tier aware, deduped like ccusage), sessions, and **loop detection** — the same tool call repeated 10+ times with identical input is almost never intentional.
-- **launchd agents** (`~/Library/LaunchAgents`): schedule, loaded state, last exit code, zombies (plist pointing to a deleted script), silent jobs (log untouched for 2x the expected interval). Vendor updaters (Google, Adobe...) are filtered out.
-- **crontab**: schedule, missing script targets.
+- **Claude Code activity** (`~/.claude/projects`): estimated spend per project, sessions, and **loop detection** — the same tool call repeated 10+ times with identical input is almost never intentional, and it burns real money.
+- **Scheduled jobs** (`~/Library/LaunchAgents` + `crontab`): schedule, loaded state, last exit code, zombies, silent jobs (log untouched for 2x the expected interval). Vendor updaters (Google, Adobe...) are filtered out.
 
-## Flags
+## Commands
 
 ```
 npx getleash            fleet report
-npx getleash --share    shareable fleet card
+npx getleash --share    shareable fleet card (post your damage)
 npx getleash --json     machine-readable output
 npx getleash --days N   window in days (default 30)
 npx getleash connect    leash cloud waitlist
@@ -36,7 +73,7 @@ npx getleash connect    leash cloud waitlist
 
 ## Privacy
 
-The scan is 100% local. No network calls, no telemetry, no account. `--json` output is yours to do whatever you want with.
+The scan is 100% local. No network calls, no telemetry, no account. Your prompts, your costs, your mess: none of it leaves your machine.
 
 ## Coming next — leash cloud
 
