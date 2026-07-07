@@ -27,9 +27,10 @@ const CONNECT = `
 leash cloud — the scan is a snapshot. The fear is continuous.
 
 Coming: email/Discord alert when a cron dies or a loop starts,
-hard budgets with a kill switch, session replay across machines.
+the budget guard synced across machines, session replay.
 
-Join the waitlist (30 seconds, just a 👍):
+Join the waitlist: 👍 the issue — and drop your email in a comment
+to get beta access first (onboarded personally):
   https://github.com/VicKayro/leash/issues/1
 `
 
