@@ -42,3 +42,9 @@ test('--help shows usage without scanning', () => {
   const out = run('--help')
   assert.ok(out.includes('Usage'))
 })
+
+test('watch --once renders a single frame and exits', () => {
+  const out = run('watch', '--once')
+  assert.ok(out.includes('leash watch'))
+  assert.ok(out.includes('live agent monitor'))
+})

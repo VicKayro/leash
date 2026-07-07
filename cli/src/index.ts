@@ -5,6 +5,7 @@ import { scanSystemd } from './scan/systemd'
 import { scanCloud } from './scan/cloud'
 import { renderReport, renderShareCard } from './report'
 import { guardCommand } from './guard'
+import { watchCommand } from './watch'
 import type { FleetReport } from './types'
 
 const HELP = `
@@ -12,6 +13,7 @@ leash — see what your agents did last night. No signup, nothing leaves this ma
 
 Usage:
   npx getleash            fleet report (Claude Code + launchd + cron)
+  npx getleash watch      LIVE monitor — top for your agents (cost ticking, burn rate)
   npx getleash --share    shareable fleet card
   npx getleash --json     machine-readable output
   npx getleash --days N   window in days (default 30)
@@ -47,6 +49,10 @@ async function main() {
   }
   if (args[0] === 'guard') {
     guardCommand(args.slice(1))
+    return
+  }
+  if (args[0] === 'watch') {
+    await watchCommand(args.slice(1))
     return
   }
   if (args.includes('--version') || args.includes('-v')) {

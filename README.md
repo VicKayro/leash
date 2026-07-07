@@ -67,6 +67,20 @@ The dollar amount is what your Claude Code usage would cost at API prices over t
 - **Scheduled jobs**: launchd on macOS, systemd user timers on Linux (beta), crontab everywhere — schedule, loaded state, last exit code, zombies, silent jobs (log untouched for 2x the expected interval). Vendor updaters (Google, Adobe...) are filtered out.
 - **Cloud-scheduled agents defined in your local repos** (GitHub Actions `schedule:` workflows, `vercel.json` crons): listed so your fleet count is honest — leash can't tell from your machine whether those are alive. That's what the cloud version is for.
 
+## `getleash watch` — top, for your agents
+
+A live monitor in your terminal: every Claude Code session currently running on your machine, its cost ticking in real time, the tool it's executing right now, and its burn rate per hour.
+
+```
+🐕 leash watch · live agent monitor · guard: $25/day · Ctrl+C to quit
+
+  LIVE · 2 sessions  burning $41.20/hour right now
+  ● myapp/backend · 0b8a68c4    $12.91  ↑$39.73/h   Edit: server.ts      4s ago
+  ● ~ (home) · f3417001          $1.41  ↑$1.50/h    Bash: npm test       12s ago
+```
+
+Watch your agents work. Catch a loop the moment it starts spinning, not on next month's bill.
+
 ## The budget guard: a hard daily spend cap for Claude Code
 
 Claude Code has **no native spend limit**. One runaway loop can burn $100 in tokens before you notice. leash gives you a real one, in one command:
@@ -88,6 +102,7 @@ That installs a tiny local [PreToolUse hook](https://docs.anthropic.com/en/docs/
 
 ```
 npx getleash                  fleet report
+npx getleash watch            live monitor (top for agents)
 npx getleash --share          shareable fleet card (post your damage)
 npx getleash --json           machine-readable output
 npx getleash --days N         window in days (default 30)
