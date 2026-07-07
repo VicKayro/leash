@@ -1,6 +1,6 @@
 # 🐕 leash
 
-**See what your agents did last night.** One command shows you every AI agent and scheduled job on your machine: what they cost, which ones are dead, which ones went crazy. In 10 seconds, no signup, nothing leaves your computer.
+**See what your agents did last night — and cap what they can spend.** One command shows you every AI agent and scheduled job on your machine: what they cost, which ones are dead, which ones went crazy. Another gives Claude Code the hard daily spend limit it doesn't have. 10 seconds, no signup, nothing leaves your computer.
 
 ```
 npx getleash
@@ -67,14 +67,32 @@ The dollar amount is what your Claude Code usage would cost at API prices over t
 - **Scheduled jobs**: launchd on macOS, systemd user timers on Linux (beta), crontab everywhere — schedule, loaded state, last exit code, zombies, silent jobs (log untouched for 2x the expected interval). Vendor updaters (Google, Adobe...) are filtered out.
 - **Cloud-scheduled agents defined in your local repos** (GitHub Actions `schedule:` workflows, `vercel.json` crons): listed so your fleet count is honest — leash can't tell from your machine whether those are alive. That's what the cloud version is for.
 
+## The budget guard: a hard daily spend cap for Claude Code
+
+Claude Code has **no native spend limit**. One runaway loop can burn $100 in tokens before you notice. leash gives you a real one, in one command:
+
+```
+npx getleash guard --daily 25
+```
+
+That installs a tiny local [PreToolUse hook](https://docs.anthropic.com/en/docs/claude-code/hooks) that checks your estimated spend today (from your local transcripts, cached 2 minutes) and **blocks tool calls** past the cap, with a clear message telling you how to raise or disable it. Notes:
+
+- 100% local, like everything else — no account, no server.
+- **Fail-open by design**: if anything at all goes wrong (broken config, missing files), Claude Code works normally. The guard can only ever block when it positively knows you're over budget.
+- `getleash guard --status` shows the cap and today's spend. `getleash guard --off` removes it cleanly (your original `settings.json` is backed up as `settings.json.pre-leash` the first time).
+- Heads-up: the cap applies to everything on this machine, including the session you're currently in. Start with a comfortable number.
+
 ## Commands
 
 ```
-npx getleash            fleet report
-npx getleash --share    shareable fleet card (post your damage)
-npx getleash --json     machine-readable output
-npx getleash --days N   window in days (default 30)
-npx getleash connect    leash cloud waitlist
+npx getleash                  fleet report
+npx getleash --share          shareable fleet card (post your damage)
+npx getleash --json           machine-readable output
+npx getleash --days N         window in days (default 30)
+npx getleash guard --daily N  hard daily spend cap (see above)
+npx getleash guard --status   cap + today's spend
+npx getleash guard --off      remove the guard
+npx getleash connect          leash cloud waitlist
 ```
 
 ## Privacy

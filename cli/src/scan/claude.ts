@@ -5,9 +5,12 @@ import * as readline from 'node:readline'
 import { costOf, type Usage } from '../pricing'
 import type { LoopIncident, ProjectStats } from '../types'
 
-// A tool call repeated this many times with the exact same input within
-// one session is almost never intentional.
+// A tool call repeated with the exact same input is almost never intentional:
+// flag at 10+ repetitions overall, or 6+ packed into a ten-minute window
+// (the signature of a genuine runaway loop).
 const LOOP_THRESHOLD = 10
+const LOOP_FAST_THRESHOLD = 6
+const LOOP_FAST_WINDOW_MS = 10 * 60_000
 
 export interface ClaudeScanResult {
   available: boolean
@@ -34,8 +37,15 @@ function hashInput(s: string): string {
   return h.toString(36)
 }
 
+interface ToolTally {
+  tool: string
+  count: number
+  firstTs: number
+  lastTs: number
+}
+
 interface SessionTally {
-  toolCounts: Map<string, { tool: string; count: number }>
+  toolCounts: Map<string, ToolTally>
   toolCallsTotal: number
   costUSD: number
   lastDate: string
@@ -93,9 +103,15 @@ async function scanFile(
         if (block?.type !== 'tool_use') continue
         session.toolCallsTotal++
         const key = block.name + ':' + hashInput(JSON.stringify(block.input ?? ''))
+        const blockTs = Number.isFinite(ts) ? ts : Date.now()
         const cur = session.toolCounts.get(key)
-        if (cur) cur.count++
-        else session.toolCounts.set(key, { tool: block.name, count: 1 })
+        if (cur) {
+          cur.count++
+          if (blockTs < cur.firstTs) cur.firstTs = blockTs
+          if (blockTs > cur.lastTs) cur.lastTs = blockTs
+        } else {
+          session.toolCounts.set(key, { tool: block.name, count: 1, firstTs: blockTs, lastTs: blockTs })
+        }
       }
     }
   }
@@ -163,17 +179,22 @@ export async function scanClaude(windowDays: number): Promise<ClaudeScanResult> 
         continue
       }
 
-      for (const { tool, count } of session.toolCounts.values()) {
-        if (count >= LOOP_THRESHOLD) {
+      for (const t of session.toolCounts.values()) {
+        const span = t.lastTs - t.firstTs
+        const isLoop =
+          t.count >= LOOP_THRESHOLD ||
+          (t.count >= LOOP_FAST_THRESHOLD && span <= LOOP_FAST_WINDOW_MS)
+        if (isLoop) {
           loops.push({
             project: proj.name,
             sessionId: path.basename(f, '.jsonl'),
-            tool,
-            count,
+            tool: t.tool,
+            count: t.count,
+            spanMin: span > 0 ? Math.max(1, Math.round(span / 60_000)) : null,
             date: session.lastDate,
             estCostUSD:
               session.toolCallsTotal > 0
-                ? (session.costUSD * count) / session.toolCallsTotal
+                ? (session.costUSD * t.count) / session.toolCallsTotal
                 : 0,
           })
         }

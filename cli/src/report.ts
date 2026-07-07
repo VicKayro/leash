@@ -38,7 +38,7 @@ function buildActions(r: FleetReport): Action[] {
   for (const l of r.claude.loops) {
     actions.push({
       title: `A session in ${l.project} looped (${l.date})`,
-      why: `${l.tool} ran ${l.count}× with the exact same input — that's ~${usd(l.estCostUSD)} likely burned for nothing. Worth checking what happened before it repeats.`,
+      why: `${l.tool} ran ${l.count}×${l.spanMin ? ` in ${l.spanMin} min` : ''} with the exact same input — that's ~${usd(l.estCostUSD)} likely burned for nothing. Worth checking what happened before it repeats.`,
       cmd: `claude --resume ${l.sessionId}`,
     })
   }

@@ -20,6 +20,7 @@ export interface LoopIncident {
   sessionId: string
   tool: string
   count: number
+  spanMin: number | null // minutes between first and last repetition
   date: string // YYYY-MM-DD
   estCostUSD: number
 }

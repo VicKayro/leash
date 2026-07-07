@@ -4,6 +4,7 @@ import { scanCron } from './scan/cron'
 import { scanSystemd } from './scan/systemd'
 import { scanCloud } from './scan/cloud'
 import { renderReport, renderShareCard } from './report'
+import { guardCommand } from './guard'
 import type { FleetReport } from './types'
 
 const HELP = `
@@ -15,6 +16,11 @@ Usage:
   npx getleash --json     machine-readable output
   npx getleash --days N   window in days (default 30)
   npx getleash connect    leash cloud waitlist (alerts, kill switch, replay)
+
+Budget guard (hard daily spend cap for Claude Code — it has no native one):
+  npx getleash guard --daily 25    block tool calls past $25/day
+  npx getleash guard --status      cap + today's spend
+  npx getleash guard --off         remove the guard
 `
 
 const CONNECT = `
@@ -35,6 +41,10 @@ async function main() {
   }
   if (args.includes('connect')) {
     console.log(CONNECT)
+    return
+  }
+  if (args[0] === 'guard') {
+    guardCommand(args.slice(1))
     return
   }
   if (args.includes('--version') || args.includes('-v')) {
