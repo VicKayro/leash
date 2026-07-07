@@ -31,17 +31,20 @@ npx getleash            fleet report
 npx getleash --share    shareable fleet card
 npx getleash --json     machine-readable output
 npx getleash --days N   window in days (default 30)
+npx getleash connect    leash cloud waitlist
 ```
 
 ## Privacy
 
 The scan is 100% local. No network calls, no telemetry, no account. `--json` output is yours to do whatever you want with.
 
-## Coming next — leash.sh
+## Coming next — leash cloud
 
 The scan is a snapshot. The fear is continuous: *what about the next time an agent loops at 3am?*
 
-**leash.sh** (soon): connect your machines, get an email/Discord ping when a cron dies or a loop starts, hard budgets with a kill switch (a Claude Code `PreToolUse` hook that actually blocks the call), session replay. This CLI stays free and open source.
+**leash cloud** (in the works): connect your machines, get an email/Discord ping when a cron dies or a loop starts, hard budgets with a kill switch (a Claude Code `PreToolUse` hook that actually blocks the call — yes, that works, and no, Claude Code has no native spend limit), session replay across machines.
+
+**[→ Join the waitlist](https://github.com/VicKayro/leash/issues/1)** — a 👍 is enough. The CLI stays free and open source.
 
 ## Dev
 

@@ -12,12 +12,27 @@ Usage:
   npx getleash --share    shareable fleet card
   npx getleash --json     machine-readable output
   npx getleash --days N   window in days (default 30)
+  npx getleash connect    leash cloud waitlist (alerts, kill switch, replay)
+`
+
+const CONNECT = `
+leash cloud — the scan is a snapshot. The fear is continuous.
+
+Coming: email/Discord alert when a cron dies or a loop starts,
+hard budgets with a kill switch, session replay across machines.
+
+Join the waitlist (30 seconds, just a 👍):
+  https://github.com/VicKayro/leash/issues/1
 `
 
 async function main() {
   const args = process.argv.slice(2)
   if (args.includes('--help') || args.includes('-h')) {
     console.log(HELP)
+    return
+  }
+  if (args.includes('connect')) {
+    console.log(CONNECT)
     return
   }
   if (args.includes('--version') || args.includes('-v')) {

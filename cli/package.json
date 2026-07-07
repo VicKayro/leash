@@ -12,6 +12,11 @@
     "launchd"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/VicKayro/leash.git"
+  },
+  "homepage": "https://github.com/VicKayro/leash#readme",
   "bin": {
     "getleash": "dist/index.js",
     "leash": "dist/index.js"

@@ -124,7 +124,7 @@ export function renderReport(r: FleetReport): string {
     push('  ' + c.green('All quiet. ') + c.dim('Be told when that changes:'))
   }
   push(c.dim('  → npx getleash --share to post your fleet card'))
-  push(c.dim('  → leash.sh — alerts when a cron dies or a loop starts (soon)'))
+  push(c.dim('  → npx getleash connect — be alerted when a cron dies or a loop starts (waitlist)'))
   push()
   return L.join('\n')
 }
