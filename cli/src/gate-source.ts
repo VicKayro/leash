@@ -32,13 +32,17 @@ function costOf(model, u) {
   )
 }
 
-function todaySpend() {
+// One pass over today's transcripts, two numbers out: spend since local
+// midnight and spend over the last rolling hour (the loop killer).
+function spendNow() {
   const startOfDay = new Date()
   startOfDay.setHours(0, 0, 0, 0)
-  const cutoff = startOfDay.getTime()
+  const dayCutoff = startOfDay.getTime()
+  const hourCutoff = Date.now() - 3_600_000
   const root = path.join(process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude'), 'projects')
   const seen = new Set()
-  let spent = 0
+  let day = 0
+  let hour = 0
   for (const d of fs.readdirSync(root)) {
     const dir = path.join(root, d)
     let files
@@ -55,7 +59,7 @@ function todaySpend() {
       } catch {
         continue
       }
-      if (stat.mtimeMs < cutoff) continue
+      if (stat.mtimeMs < dayCutoff) continue
       const lines = fs.readFileSync(file, 'utf8').split('\\n')
       for (const line of lines) {
         if (!line.includes('"type":"assistant"')) continue
@@ -67,42 +71,64 @@ function todaySpend() {
         }
         if (e.type !== 'assistant' || !e.message || !e.message.usage) continue
         const ts = Date.parse(e.timestamp)
-        if (Number.isFinite(ts) && ts < cutoff) continue
+        if (Number.isFinite(ts) && ts < dayCutoff) continue
         const key = (e.message.id || '') + ':' + (e.requestId || '')
         if (key !== ':' && seen.has(key)) continue
         seen.add(key)
-        spent += costOf(e.message.model, e.message.usage)
+        const c = costOf(e.message.model, e.message.usage)
+        day += c
+        if (!Number.isFinite(ts) || ts >= hourCutoff) hour += c
       }
     }
   }
-  return spent
+  return { day, hour }
 }
 
 try {
   const config = JSON.parse(fs.readFileSync(path.join(LEASH_DIR, 'guard.json'), 'utf8'))
   const daily = Number(config.dailyUSD)
-  if (!Number.isFinite(daily) || daily <= 0) process.exit(0)
+  const hourly = Number(config.hourlyUSD)
+  const hasDaily = Number.isFinite(daily) && daily > 0
+  const hasHourly = Number.isFinite(hourly) && hourly > 0
+  if (!hasDaily && !hasHourly) process.exit(0)
 
   const cachePath = path.join(LEASH_DIR, 'cache.json')
   const today = new Date().toISOString().slice(0, 10)
   let spent = null
   try {
     const cache = JSON.parse(fs.readFileSync(cachePath, 'utf8'))
-    if (cache.date === today && Date.now() - cache.computedAt < CACHE_TTL_MS) spent = cache.spentUSD
+    if (cache.date === today && Date.now() - cache.computedAt < CACHE_TTL_MS) {
+      spent = { day: cache.spentUSD, hour: cache.hourUSD ?? 0 }
+    }
   } catch {}
   if (spent === null) {
-    spent = todaySpend()
+    spent = spendNow()
     try {
-      fs.writeFileSync(cachePath, JSON.stringify({ date: today, spentUSD: spent, computedAt: Date.now() }))
+      fs.writeFileSync(
+        cachePath,
+        JSON.stringify({ date: today, spentUSD: spent.day, hourUSD: spent.hour, computedAt: Date.now() }),
+      )
     } catch {}
   }
 
-  if (spent >= daily) {
+  if (hasHourly && spent.hour >= hourly) {
+    process.stderr.write(
+      'leash budget guard: burn-rate cap of $' +
+        hourly.toFixed(2) +
+        '/hour reached ($' +
+        spent.hour.toFixed(2) +
+        ' in the last hour — possible runaway loop). Raise: getleash guard --hourly ' +
+        Math.ceil(hourly * 2) +
+        ' · Disable: getleash guard --off\\n',
+    )
+    process.exit(2)
+  }
+  if (hasDaily && spent.day >= daily) {
     process.stderr.write(
       'leash budget guard: daily budget of $' +
         daily.toFixed(2) +
         ' reached ($' +
-        spent.toFixed(2) +
+        spent.day.toFixed(2) +
         ' spent today). Raise it: getleash guard --daily ' +
         Math.ceil(daily * 2) +
         ' · Disable: getleash guard --off\\n',

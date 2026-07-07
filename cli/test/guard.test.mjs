@@ -75,6 +75,29 @@ test('gate blocks over budget (exit 2) and allows under budget (exit 0)', () => 
   assert.equal(allowed.status, 0)
 })
 
+test('gate blocks on hourly burn-rate even under the daily cap', () => {
+  const env = tmpEnv()
+  execFileSync('node', [cli, 'guard', '--daily', '100', '--hourly', '5'], { encoding: 'utf8', env })
+  const gate = path.join(env.LEASH_DIR, 'gate.mjs')
+  // $8 in the last hour, only $8 today: daily cap fine, burn rate NOT fine
+  fs.writeFileSync(
+    path.join(env.LEASH_DIR, 'cache.json'),
+    JSON.stringify({ date: new Date().toISOString().slice(0, 10), spentUSD: 8, hourUSD: 8, computedAt: Date.now() }),
+  )
+  const blocked = spawnSync('node', [gate], { encoding: 'utf8', env })
+  assert.equal(blocked.status, 2)
+  assert.ok(blocked.stderr.includes('burn-rate'))
+})
+
+test('guard --hourly alone keeps an existing daily cap', () => {
+  const env = tmpEnv()
+  execFileSync('node', [cli, 'guard', '--daily', '25'], { encoding: 'utf8', env })
+  execFileSync('node', [cli, 'guard', '--hourly', '5'], { encoding: 'utf8', env })
+  const config = JSON.parse(fs.readFileSync(path.join(env.LEASH_DIR, 'guard.json'), 'utf8'))
+  assert.equal(config.dailyUSD, 25)
+  assert.equal(config.hourlyUSD, 5)
+})
+
 test('gate fails OPEN when config is broken', () => {
   const env = tmpEnv()
   execFileSync('node', [cli, 'guard', '--daily', '5'], { encoding: 'utf8', env })

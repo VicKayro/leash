@@ -43,10 +43,25 @@ function removeOurHooks(settings: any): void {
   if (Object.keys(settings.hooks).length === 0) delete settings.hooks
 }
 
-export function guardOn(dailyUSD: number): void {
+function capLine(config: { dailyUSD?: number; hourlyUSD?: number }): string {
+  const parts: string[] = []
+  if (config.dailyUSD) parts.push(`$${config.dailyUSD.toFixed(2)}/day`)
+  if (config.hourlyUSD) parts.push(`$${config.hourlyUSD.toFixed(2)}/hour (burn-rate)`)
+  return parts.join(' · ')
+}
+
+export function guardOn(dailyUSD: number | null, hourlyUSD: number | null): void {
+  // Merge with any existing config so `--hourly 5` doesn't wipe the daily cap.
+  let config: { dailyUSD?: number; hourlyUSD?: number } = {}
+  try {
+    config = JSON.parse(fs.readFileSync(path.join(LEASH_DIR, 'guard.json'), 'utf8'))
+  } catch {}
+  if (dailyUSD !== null) config.dailyUSD = dailyUSD
+  if (hourlyUSD !== null) config.hourlyUSD = hourlyUSD
+
   fs.mkdirSync(LEASH_DIR, { recursive: true })
   fs.writeFileSync(GATE_PATH, GATE_SOURCE)
-  fs.writeFileSync(path.join(LEASH_DIR, 'guard.json'), JSON.stringify({ dailyUSD }, null, 2) + '\n')
+  fs.writeFileSync(path.join(LEASH_DIR, 'guard.json'), JSON.stringify(config, null, 2) + '\n')
 
   const settings = readSettings()
   removeOurHooks(settings) // idempotent re-install
@@ -59,15 +74,15 @@ export function guardOn(dailyUSD: number): void {
   writeSettings(settings)
 
   console.log(`
-leash budget guard is ON — daily cap: $${dailyUSD.toFixed(2)}
+leash budget guard is ON — ${capLine(config)}
 
-How it works: a Claude Code PreToolUse hook checks today's estimated spend
-(local transcripts, cached 2 min). Over the cap, tool calls are BLOCKED with
-a clear message. New sessions pick it up immediately; already-running ones
-on their next tool call. Fail-open: if anything breaks, Claude Code works.
+How it works: a Claude Code PreToolUse hook checks your estimated spend
+(local transcripts, cached 2 min). Over a cap, tool calls are BLOCKED with
+a clear message. The hourly cap catches runaway loops long before the daily
+one would. Fail-open: if anything breaks, Claude Code works normally.
 
   Status:  getleash guard --status
-  Change:  getleash guard --daily <amount>
+  Change:  getleash guard --daily <amount> and/or --hourly <amount>
   Off:     getleash guard --off
 `)
 }
@@ -93,8 +108,8 @@ export function guardStatus(): void {
     console.log(`
 leash budget guard is OFF.
 
-Claude Code has no native spend limit. Set a hard daily cap in one command:
-  getleash guard --daily 25
+Claude Code has no native spend limit. Set hard caps in one command:
+  getleash guard --daily 25 --hourly 5
 `)
     return
   }
@@ -103,29 +118,35 @@ Claude Code has no native spend limit. Set a hard daily cap in one command:
   try {
     const cache = JSON.parse(fs.readFileSync(path.join(LEASH_DIR, 'cache.json'), 'utf8'))
     if (cache.date === new Date().toISOString().slice(0, 10)) {
-      spentLine = `$${cache.spentUSD.toFixed(2)} spent today (estimated)`
+      spentLine = `$${cache.spentUSD.toFixed(2)} spent today, $${(cache.hourUSD ?? 0).toFixed(2)} in the last hour (estimated)`
     }
   } catch {}
   console.log(`
-leash budget guard is ON — daily cap: $${Number(config.dailyUSD).toFixed(2)}
+leash budget guard is ON — ${capLine(config)}
 ${spentLine}
 
-  Change:  getleash guard --daily <amount>
+  Change:  getleash guard --daily <amount> and/or --hourly <amount>
   Off:     getleash guard --off
 `)
 }
 
+function amountAfter(args: string[], flag: string): number | null | 'invalid' {
+  const idx = args.indexOf(flag)
+  if (idx < 0) return null
+  const amount = Number(args[idx + 1])
+  if (!Number.isFinite(amount) || amount <= 0) return 'invalid'
+  return amount
+}
+
 export function guardCommand(args: string[]): void {
   if (args.includes('--off')) return guardOff()
-  const dailyIdx = args.indexOf('--daily')
-  if (dailyIdx >= 0) {
-    const amount = Number(args[dailyIdx + 1])
-    if (!Number.isFinite(amount) || amount <= 0) {
-      console.error('leash: --daily needs a positive amount, e.g. getleash guard --daily 25')
-      process.exitCode = 1
-      return
-    }
-    return guardOn(amount)
+  const daily = amountAfter(args, '--daily')
+  const hourly = amountAfter(args, '--hourly')
+  if (daily === 'invalid' || hourly === 'invalid') {
+    console.error('leash: caps need a positive amount, e.g. getleash guard --daily 25 --hourly 5')
+    process.exitCode = 1
+    return
   }
+  if (daily !== null || hourly !== null) return guardOn(daily, hourly)
   return guardStatus()
 }

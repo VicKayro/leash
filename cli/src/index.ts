@@ -17,9 +17,10 @@ Usage:
   npx getleash --days N   window in days (default 30)
   npx getleash connect    leash cloud waitlist (alerts, kill switch, replay)
 
-Budget guard (hard daily spend cap for Claude Code — it has no native one):
+Budget guard (hard spend caps for Claude Code — it has no native ones):
   npx getleash guard --daily 25    block tool calls past $25/day
-  npx getleash guard --status      cap + today's spend
+  npx getleash guard --hourly 5    burn-rate cap — kills runaway loops fast
+  npx getleash guard --status      caps + current spend
   npx getleash guard --off         remove the guard
 `
 

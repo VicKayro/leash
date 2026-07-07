@@ -72,8 +72,10 @@ The dollar amount is what your Claude Code usage would cost at API prices over t
 Claude Code has **no native spend limit**. One runaway loop can burn $100 in tokens before you notice. leash gives you a real one, in one command:
 
 ```
-npx getleash guard --daily 25
+npx getleash guard --daily 25 --hourly 5
 ```
+
+The two caps do different jobs: `--daily` is your overall budget, `--hourly` is the **loop killer** — a runaway loop burning $10 in 8 minutes sails under a daily cap but slams into a burn-rate cap within minutes.
 
 That installs a tiny local [PreToolUse hook](https://docs.anthropic.com/en/docs/claude-code/hooks) that checks your estimated spend today (from your local transcripts, cached 2 minutes) and **blocks tool calls** past the cap, with a clear message telling you how to raise or disable it. Notes:
 
@@ -89,7 +91,7 @@ npx getleash                  fleet report
 npx getleash --share          shareable fleet card (post your damage)
 npx getleash --json           machine-readable output
 npx getleash --days N         window in days (default 30)
-npx getleash guard --daily N  hard daily spend cap (see above)
+npx getleash guard --daily N --hourly M  hard spend caps (see above)
 npx getleash guard --status   cap + today's spend
 npx getleash guard --off      remove the guard
 npx getleash connect          leash cloud waitlist
