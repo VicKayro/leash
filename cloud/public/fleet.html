@@ -52,6 +52,17 @@
   #tip { position: fixed; pointer-events: none; background: #000; border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; font-size: 12px; color: var(--text); z-index: 10; display: none; white-space: nowrap; }
   #tip b { color: var(--green); }
 
+  /* Night replay */
+  .night { display: flex; gap: 14px; align-items: center; margin-bottom: 10px; }
+  .night .date { flex: none; width: 92px; color: var(--dim); font-size: 12px; text-align: right; }
+  .night .total { flex: none; width: 70px; color: var(--dim); font-size: 12px; }
+  .night .total b { color: var(--text); }
+  .track { position: relative; flex: 1; height: 28px; background: var(--panel2); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .track .tick { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--border); opacity: .6; }
+  .sess { position: absolute; top: 5px; bottom: 5px; background: var(--green); opacity: .85; border-radius: 4px; min-width: 7px; cursor: default; }
+  .sess:hover { opacity: 1; background: #7ce9a4; }
+  .hourlabels { display: flex; justify-content: space-between; color: var(--faint); font-size: 11px; margin: 6px 0 0 106px; padding-right: 84px; }
+
   /* Fleet dots */
   .dots { display: flex; flex-wrap: wrap; gap: 7px; }
   .dot { width: 14px; height: 14px; border-radius: 4px; cursor: default; }
@@ -120,7 +131,7 @@ const ago = (t) => {
 const KIND = { 'github-actions': 'GitHub Actions', 'vercel-cron': 'Vercel', 'render-cron': 'Render', railway: 'Railway', 'cloudflare-worker': 'Cloudflare' }
 
 function aggregate(ms) {
-  const A = { cost: 0, sessions: 0, night: 0, tools: 0, windowDays: 30, daily: new Map(), agents: [], issues: [], lastActivity: 0, topSession: null, activeDays: 0 }
+  const A = { cost: 0, sessions: 0, night: 0, tools: 0, windowDays: 30, daily: new Map(), agents: [], issues: [], lastActivity: 0, topSession: null, activeDays: 0, nights: [] }
   for (const m of ms) {
     const s = m.snapshot || {}
     A.cost += s.totals?.costUSD || 0
@@ -134,6 +145,7 @@ function aggregate(ms) {
     if (ts && (!A.topSession || ts.costUSD > A.topSession.costUSD)) A.topSession = ts
     for (const d of s.daily || []) A.daily.set(d.date, (A.daily.get(d.date) || 0) + d.costUSD)
     const host = m.machine?.host || '?'
+    for (const n of s.nights || []) A.nights.push({ ...n, host })
     for (const i of s.scheduled?.issues || []) {
       const sev = i.problem === 'zombie' || i.problem === 'failing' ? 'bad' : 'warn'
       A.issues.push({ sev, name: i.label, note: i.problem + (i.schedule ? ' · ' + i.schedule : ''), src: host, local: true })
@@ -186,6 +198,45 @@ function pulseHTML(A) {
   return `<section><h2>The pulse <span class="sub">· busiest day ${esc(busiest[0])} (${usd(busiest[1])})</span></h2>
     <div class="card"><div class="pulsechart">${cols}</div>
     <div class="xlabels"><span>${esc(days[0][0])}</span><span>${esc(days[Math.floor(days.length / 2)][0])}</span><span>${esc(days[days.length - 1][0])}</span></div></div>
+  </section>`
+}
+
+// The night replay: one 00:00→07:00 track per night, sessions placed at the
+// hour they actually ran. The block is the session's overlap with that night.
+function nightsHTML(A, ms) {
+  if (!A.nights.length) return ''
+  const byNight = new Map()
+  for (const n of A.nights) {
+    const start = new Date(n.startTs)
+    // which morning does this session's night portion belong to?
+    const morning = new Date(start)
+    if (start.getHours() >= 7) morning.setDate(morning.getDate() + 1)
+    morning.setHours(0, 0, 0, 0)
+    const m0 = morning.getTime(), m7 = m0 + 7 * 3600e3
+    const b0 = Math.max(n.startTs, m0), b1 = Math.min(Math.max(n.endTs, n.startTs), m7)
+    if (b1 <= m0 || b0 >= m7) continue
+    const key = morning.toISOString().slice(0, 10)
+    if (!byNight.has(key)) byNight.set(key, [])
+    byNight.get(key).push({ ...n, b0: Math.max(b0, m0), b1: Math.max(Math.min(b1, m7), Math.max(b0, m0) + 5 * 60e3), m0 })
+  }
+  const nights = [...byNight.entries()].sort((a, b) => b[0].localeCompare(a[0])).slice(0, 5)
+  if (!nights.length) return ''
+  const fmt = (t) => new Date(t).toTimeString().slice(0, 5)
+  const dlabel = (key) => new Date(key + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  const ticks = [1, 2, 3, 4, 5, 6].map((h) => `<div class="tick" style="left:${(h / 7) * 100}%"></div>`).join('')
+  const rows = nights.map(([key, list]) => {
+    const total = list.reduce((a, s) => a + (s.costUSD || 0), 0)
+    const blocks = list.map((s) => {
+      const left = ((s.b0 - s.m0) / (7 * 3600e3)) * 100
+      const width = Math.max(1.2, ((s.b1 - s.b0) / (7 * 3600e3)) * 100)
+      const hostTag = ms.length > 1 ? ' · ' + esc(s.host) : ''
+      return `<div class="sess" style="left:${left.toFixed(2)}%;width:${width.toFixed(2)}%" data-tip="<b>${esc(s.project)}</b> — ${fmt(s.b0)}→${fmt(s.b1)} · ${usd(s.costUSD)} · ${(s.toolCalls || 0).toLocaleString('en-US')} tool calls${hostTag}"></div>`
+    }).join('')
+    return `<div class="night"><span class="date">${esc(dlabel(key))}</span><div class="track">${ticks}${blocks}</div><span class="total"><b>${usd(total, 0)}</b></span></div>`
+  }).join('')
+  const totalCost = A.nights.reduce((a, n) => a + (n.costUSD || 0), 0)
+  return `<section><h2>🌙 While you slept <span class="sub">· ${A.night} night session${A.night > 1 ? 's' : ''} · ${usd(totalCost, 0)} of work between midnight and 7am</span></h2>
+    <div class="card">${rows}<div class="hourlabels"><span>12am</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7am</span></div></div>
   </section>`
 }
 
@@ -293,7 +344,7 @@ async function load() {
   }
   const A = aggregate(ms)
   document.getElementById('stamp').textContent = 'updated ' + ago(ms[0].receivedAt)
-  $app.innerHTML = heroHTML(A, ms) + attnHTML(A) + pulseHTML(A) + fleetHTML(A) + factsHTML(A, ms) + machinesHTML(ms)
+  $app.innerHTML = heroHTML(A, ms) + attnHTML(A) + nightsHTML(A, ms) + pulseHTML(A) + fleetHTML(A) + factsHTML(A, ms) + machinesHTML(ms)
   document.title = `leash — ${usd(A.cost, 0)} / ${A.windowDays}d`
   countUp()
   wireTips()

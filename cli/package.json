@@ -1,6 +1,6 @@
 {
   "name": "getleash",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "See what your Claude Code agents did last night. Fleet report, costs, loops, dead crons \u2014 in 10 seconds. Free cloud dashboard across machines.",
   "keywords": [
     "claude-code",

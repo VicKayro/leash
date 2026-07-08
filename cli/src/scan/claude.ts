@@ -21,6 +21,7 @@ export interface ClaudeScanResult {
   loops: LoopIncident[]
   insights: FleetInsights
   daily: Array<{ date: string; costUSD: number }> // one entry per day of the window, oldest first
+  nights: NightSession[] // sessions with activity between midnight and 7am, newest first
 }
 
 interface InsightsAcc {
@@ -69,12 +70,31 @@ interface ToolTally {
   lastTs: number
 }
 
+interface NightSpan {
+  min: number
+  max: number
+  entries: number
+  toolCalls: number
+}
+
 interface SessionTally {
   toolCounts: Map<string, ToolTally>
   toolCallsTotal: number
   costUSD: number
   lastDate: string
   ranAtNight: boolean
+  entries: number
+  // Resumed sessions span days; the replay needs the actual midnight-to-7am
+  // activity bounds per night, keyed by the morning's local date.
+  nightSpans: Map<string, NightSpan>
+}
+
+export interface NightSession {
+  project: string
+  startTs: number
+  endTs: number
+  costUSD: number
+  toolCalls: number
 }
 
 async function scanFile(
@@ -123,15 +143,25 @@ async function scanFile(
       }
     }
     proj.messages++
+    let nightSpan: NightSpan | null = null
     if (Number.isFinite(ts)) {
       if (ts > proj.lastActivity) proj.lastActivity = ts
+      session.entries++
       const local = new Date(ts)
       session.lastDate = local.toISOString().slice(0, 10)
       acc.activeDays.add(
         `${local.getFullYear()}-${local.getMonth() + 1}-${local.getDate()}`,
       )
       const hour = local.getHours()
-      if (hour < 7) session.ranAtNight = true
+      if (hour < 7) {
+        session.ranAtNight = true
+        const key = localDayKey(ts)
+        nightSpan = session.nightSpans.get(key) ?? { min: ts, max: ts, entries: 0, toolCalls: 0 }
+        if (ts < nightSpan.min) nightSpan.min = ts
+        if (ts > nightSpan.max) nightSpan.max = ts
+        nightSpan.entries++
+        session.nightSpans.set(key, nightSpan)
+      }
     }
 
     const content = entry.message.content
@@ -139,6 +169,7 @@ async function scanFile(
       for (const block of content) {
         if (block?.type !== 'tool_use') continue
         session.toolCallsTotal++
+        if (nightSpan) nightSpan.toolCalls++
         acc.totalToolCalls++
         acc.toolCounts.set(block.name, (acc.toolCounts.get(block.name) ?? 0) + 1)
         const key = block.name + ':' + hashInput(JSON.stringify(block.input ?? ''))
@@ -168,12 +199,14 @@ export async function scanClaude(windowDays: number): Promise<ClaudeScanResult> 
       loops: [],
       insights: EMPTY_INSIGHTS,
       daily: [],
+      nights: [],
     }
   }
 
   const cutoffMs = Date.now() - windowDays * 86_400_000
   const projects = new Map<string, ProjectStats>()
   const loops: LoopIncident[] = []
+  const nights: Array<{ proj: ProjectStats; startTs: number; endTs: number; costUSD: number; toolCalls: number }> = []
   const seenRequests = new Set<string>()
   const acc: InsightsAcc = {
     activeDays: new Set(),
@@ -229,13 +262,27 @@ export async function scanClaude(windowDays: number): Promise<ClaudeScanResult> 
         costUSD: 0,
         lastDate: new Date(stat.mtimeMs).toISOString().slice(0, 10),
         ranAtNight: false,
+        entries: 0,
+        nightSpans: new Map(),
       }
       try {
         await scanFile(file, cutoffMs, proj, session, seenRequests, acc)
       } catch {
         continue
       }
-      if (session.ranAtNight) acc.nightSessions++
+      if (session.ranAtNight) {
+        acc.nightSessions++
+        for (const span of session.nightSpans.values()) {
+          nights.push({
+            proj,
+            startTs: span.min,
+            endTs: span.max,
+            // session cost split by how much of the session happened that night
+            costUSD: session.entries > 0 ? session.costUSD * (span.entries / session.entries) : 0,
+            toolCalls: span.toolCalls,
+          })
+        }
+      }
       if (session.costUSD > (acc.topSession?.costUSD ?? 0)) {
         acc.topSession = { proj, date: session.lastDate, costUSD: session.costUSD }
       }
@@ -298,5 +345,15 @@ export async function scanClaude(windowDays: number): Promise<ClaudeScanResult> 
         : null,
     },
     daily,
+    nights: nights
+      .sort((a, b) => b.startTs - a.startTs)
+      .slice(0, 40)
+      .map((n) => ({
+        project: n.proj.name || n.proj.dir,
+        startTs: n.startTs,
+        endTs: n.endTs,
+        costUSD: Math.round(n.costUSD * 100) / 100,
+        toolCalls: n.toolCalls,
+      })),
   }
 }

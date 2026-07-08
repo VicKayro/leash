@@ -98,6 +98,7 @@ export function buildSnapshot(report: FleetReport): any {
     },
     daily,
     roi,
+    nights: report.claude.nights.slice(0, 30), // project display names only, never paths
     lastActivityAt: Math.max(0, ...report.claude.projects.map((p) => p.lastActivity)) || null,
     insights: {
       nightSessions: report.claude.insights.nightSessions,

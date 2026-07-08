@@ -66,6 +66,7 @@ export interface FleetReport {
     loops: LoopIncident[]
     insights: FleetInsights
     daily: Array<{ date: string; costUSD: number }>
+    nights: Array<{ project: string; startTs: number; endTs: number; costUSD: number; toolCalls: number }>
   }
   scheduled: ScheduledAgent[]
   cloud: CloudAgent[]
