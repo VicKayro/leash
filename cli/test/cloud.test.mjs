@@ -96,9 +96,10 @@ test('push sends a metrics-only snapshot — no filesystem paths, no transcript 
     assert.match(received.token, /^flt_/)
     assert.match(received.machine.id, /^[a-f0-9]{12}$/)
     const snap = received.snapshot
-    assert.equal(snap.v, 1)
+    assert.equal(snap.v, 2)
     assert.equal(typeof snap.totals.costUSD, 'number')
     assert.ok(Array.isArray(snap.topProjects))
+    assert.ok(Array.isArray(snap.daily), 'daily pulse data present (empty on a machine with no Claude history)')
     const flat = JSON.stringify(snap)
     assert.ok(!flat.includes(os.homedir()), 'snapshot must not contain home paths')
     assert.ok(!flat.includes('/Users/') && !flat.includes('/home/'), 'snapshot must not contain absolute paths')

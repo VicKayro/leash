@@ -20,6 +20,7 @@ export interface ClaudeScanResult {
   inactiveProjects: number // projects with history but no activity in the window
   loops: LoopIncident[]
   insights: FleetInsights
+  daily: Array<{ date: string; costUSD: number }> // one entry per day of the window, oldest first
 }
 
 interface InsightsAcc {
@@ -28,6 +29,7 @@ interface InsightsAcc {
   nightSessions: number
   totalToolCalls: number
   topSession: { proj: ProjectStats; date: string; costUSD: number } | null
+  dailyCost: Map<string, number> // local YYYY-MM-DD → USD
 }
 
 const EMPTY_INSIGHTS: FleetInsights = {
@@ -46,6 +48,12 @@ function nameFromCwd(cwd: string): string {
   const parts = cwd.split('/').filter(Boolean)
   if (parts.length <= 2) return '~ (home)' // sessions started from the home folder
   return parts.slice(-2).join('/')
+}
+
+// Local-timezone day key — the pulse chart should match the user's day, not UTC's.
+function localDayKey(ts: number): string {
+  const d = new Date(ts)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 function hashInput(s: string): string {
@@ -109,6 +117,10 @@ async function scanFile(
       const cost = costOf(entry.message.model, usage)
       proj.costUSD += cost
       session.costUSD += cost
+      if (Number.isFinite(ts)) {
+        const day = localDayKey(ts)
+        acc.dailyCost.set(day, (acc.dailyCost.get(day) ?? 0) + cost)
+      }
     }
     proj.messages++
     if (Number.isFinite(ts)) {
@@ -155,6 +167,7 @@ export async function scanClaude(windowDays: number): Promise<ClaudeScanResult> 
       inactiveProjects: 0,
       loops: [],
       insights: EMPTY_INSIGHTS,
+      daily: [],
     }
   }
 
@@ -168,6 +181,7 @@ export async function scanClaude(windowDays: number): Promise<ClaudeScanResult> 
     nightSessions: 0,
     totalToolCalls: 0,
     topSession: null,
+    dailyCost: new Map(),
   }
   let totalSessions = 0
   let inactiveProjects = 0
@@ -252,6 +266,12 @@ export async function scanClaude(windowDays: number): Promise<ClaudeScanResult> 
 
   const list = [...projects.values()].sort((a, b) => b.costUSD - a.costUSD)
   for (const p of list) if (!p.name) p.name = p.dir.replace(/^-/, '').split('-').slice(-2).join('/')
+  // One entry per day, oldest first, zero-filled — ready to chart as-is.
+  const daily: Array<{ date: string; costUSD: number }> = []
+  for (let i = windowDays - 1; i >= 0; i--) {
+    const day = localDayKey(Date.now() - i * 86_400_000)
+    daily.push({ date: day, costUSD: Math.round((acc.dailyCost.get(day) ?? 0) * 100) / 100 })
+  }
   const topTools = [...acc.toolCounts.entries()]
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3)
@@ -277,5 +297,6 @@ export async function scanClaude(windowDays: number): Promise<ClaudeScanResult> 
           }
         : null,
     },
+    daily,
   }
 }

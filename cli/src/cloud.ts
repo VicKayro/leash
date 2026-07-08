@@ -74,20 +74,37 @@ export function buildSnapshot(report: FleetReport): any {
     .slice(0, 20)
     .map(({ a, problem }) => ({ label: a.label, source: a.source, schedule: a.schedule, problem }))
 
+  // ROI vs a flat subscription — same heuristic as the terminal report.
+  const monthly = report.claude.totalCostUSD * (30 / report.windowDays)
+  const roi =
+    monthly > 200
+      ? { mult: round2(monthly / 200), plan: '$200/mo Max' }
+      : monthly > 20
+        ? { mult: round2(monthly / 20), plan: '$20/mo Pro' }
+        : null
+
+  const daily = report.claude.daily.slice(-60)
+  const today = daily.length ? daily[daily.length - 1].costUSD : 0
+
   return {
-    v: 1,
+    v: 2,
     generatedAt: report.generatedAt,
     windowDays: report.windowDays,
     totals: {
       costUSD: round2(report.claude.totalCostUSD),
       sessions: report.claude.totalSessions,
       projects: report.claude.projects.length,
+      todayUSD: round2(today),
     },
+    daily,
+    roi,
+    lastActivityAt: Math.max(0, ...report.claude.projects.map((p) => p.lastActivity)) || null,
     insights: {
       nightSessions: report.claude.insights.nightSessions,
       activeDays: report.claude.insights.activeDays,
       totalToolCalls: report.claude.insights.totalToolCalls,
       topTools: report.claude.insights.topTools.slice(0, 3),
+      topSession: report.claude.insights.topSession, // project display name only, never a path
     },
     topProjects: [...report.claude.projects]
       .sort((a, b) => b.costUSD - a.costUSD)

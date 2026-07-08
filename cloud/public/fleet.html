@@ -7,112 +7,271 @@
 <title>leash — fleet</title>
 <style>
   :root {
-    --bg: #0b0f14; --panel: #11161d; --border: #1e2733;
-    --text: #d7e0ea; --dim: #7a8899; --green: #4ade80; --amber: #fbbf24; --red: #f87171;
+    --bg: #0b0f14; --panel: #11161d; --panel2: #151c25; --border: #1e2733;
+    --text: #d7e0ea; --dim: #7a8899; --faint: #4a5462;
+    --green: #4ade80; --amber: #fbbf24; --red: #f87171;
   }
   * { box-sizing: border-box; margin: 0; }
   body {
     background: var(--bg); color: var(--text);
     font: 14px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    padding: 32px 16px 64px; max-width: 860px; margin: 0 auto;
+    padding: 36px 18px 64px; max-width: 880px; margin: 0 auto;
   }
   a { color: var(--green); text-decoration: none; }
-  header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px; }
+  header { display: flex; align-items: baseline; gap: 12px; }
   header h1 { font-size: 20px; letter-spacing: .5px; }
-  header .beta { color: var(--amber); font-size: 12px; border: 1px solid var(--amber); border-radius: 4px; padding: 0 6px; }
-  .sub { color: var(--dim); margin-bottom: 24px; }
-  .totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 28px; }
-  .stat { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
-  .stat .n { font-size: 22px; color: var(--green); }
-  .stat .l { color: var(--dim); font-size: 12px; }
-  .machine { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; margin-bottom: 18px; }
-  .mhead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; margin-bottom: 10px; }
-  .mhead .host { font-size: 16px; color: #fff; }
-  .mhead .meta { color: var(--dim); font-size: 12px; }
-  .badge { font-size: 11px; border-radius: 4px; padding: 1px 7px; }
-  .badge.ok { color: var(--green); border: 1px solid var(--green); }
-  .badge.stale { color: var(--amber); border: 1px solid var(--amber); }
-  .row { display: flex; flex-wrap: wrap; gap: 18px; color: var(--dim); font-size: 13px; margin-bottom: 12px; }
-  .row b { color: var(--text); font-weight: 600; }
-  h3 { font-size: 12px; color: var(--dim); text-transform: uppercase; letter-spacing: 1px; margin: 14px 0 6px; }
-  ul { list-style: none; }
-  li { padding: 2px 0; font-size: 13px; }
-  .warn { color: var(--amber); }
-  .bad { color: var(--red); }
-  .good { color: var(--green); }
-  .bar { display: inline-block; height: 8px; background: var(--green); opacity: .7; border-radius: 2px; vertical-align: middle; margin-right: 8px; }
+  header .beta { color: var(--amber); font-size: 11px; border: 1px solid var(--amber); border-radius: 4px; padding: 0 6px; }
+  header .right { margin-left: auto; color: var(--faint); font-size: 12px; }
+
+  /* Hero */
+  .hero { text-align: center; padding: 44px 0 10px; }
+  .hero .pre { color: var(--dim); font-size: 15px; }
+  .hero .big { font-size: clamp(52px, 11vw, 92px); font-weight: 700; color: #fff; letter-spacing: -2px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .hero .big .sign { color: var(--green); }
+  .hero .post { color: var(--dim); font-size: 15px; margin-top: 2px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 18px 0 6px; }
+  .chip { border: 1px solid var(--border); background: var(--panel); border-radius: 999px; padding: 4px 13px; font-size: 13px; color: var(--dim); }
+  .chip b { color: var(--text); font-weight: 600; }
+  .chip.live { border-color: var(--green); color: var(--green); }
+  .chip .pulse { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--green); margin-right: 6px; animation: pulse 1.6s ease-out infinite; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(74,222,128,.5) } 70% { box-shadow: 0 0 0 8px rgba(74,222,128,0) } 100% { box-shadow: 0 0 0 0 rgba(74,222,128,0) } }
+  @media (prefers-reduced-motion: reduce) { .chip .pulse { animation: none } }
+
+  section { margin-top: 34px; }
+  h2 { font-size: 12px; color: var(--dim); text-transform: uppercase; letter-spacing: 1.4px; margin-bottom: 12px; }
+  h2 .sub { text-transform: none; letter-spacing: 0; color: var(--faint); font-weight: 400; }
+
+  /* Pulse chart */
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+  .pulsechart { position: relative; height: 132px; display: flex; align-items: flex-end; gap: 2px; }
+  .pulsechart .col { flex: 1; display: flex; align-items: flex-end; height: 100%; cursor: default; }
+  .pulsechart .bar { width: 100%; background: var(--green); border-radius: 3px 3px 0 0; min-height: 2px; opacity: .82; }
+  .pulsechart .col:hover .bar { opacity: 1; background: #7ce9a4; }
+  .pulsechart .col.zero .bar { background: var(--border); opacity: 1; }
+  .xlabels { display: flex; justify-content: space-between; color: var(--faint); font-size: 11px; margin-top: 8px; }
+  #tip { position: fixed; pointer-events: none; background: #000; border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; font-size: 12px; color: var(--text); z-index: 10; display: none; white-space: nowrap; }
+  #tip b { color: var(--green); }
+
+  /* Fleet dots */
+  .dots { display: flex; flex-wrap: wrap; gap: 7px; }
+  .dot { width: 14px; height: 14px; border-radius: 4px; cursor: default; }
+  .dot.ok { background: var(--green); opacity: .85; }
+  .dot.warn { background: var(--amber); }
+  .dot.bad { background: var(--red); animation: blink 1.4s ease-in-out infinite; }
+  .dot.unknown { background: var(--border); }
+  .dot:hover { outline: 2px solid #fff3; }
+  @keyframes blink { 50% { opacity: .45 } }
+  @media (prefers-reduced-motion: reduce) { .dot.bad { animation: none } }
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 12px; color: var(--dim); font-size: 12px; }
+  .legend span::before { content: ''; display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 6px; }
+  .legend .l-ok::before { background: var(--green) } .legend .l-warn::before { background: var(--amber) }
+  .legend .l-bad::before { background: var(--red) } .legend .l-unknown::before { background: var(--border) }
+
+  /* Attention */
+  .attn { display: flex; flex-direction: column; gap: 8px; }
+  .attn .row { display: flex; gap: 10px; align-items: baseline; background: var(--panel); border: 1px solid var(--border); border-left: 3px solid var(--red); border-radius: 8px; padding: 10px 14px; }
+  .attn .row.warn { border-left-color: var(--amber); }
+  .attn .icon { flex: none; }
+  .attn .name { color: #fff; font-weight: 600; }
+  .attn .note { color: var(--dim); font-size: 13px; }
+  .attn .src { margin-left: auto; color: var(--faint); font-size: 11px; white-space: nowrap; }
+  .attn .fixhint { color: var(--faint); font-size: 12px; padding: 2px 4px 0; }
+  .allgood { color: var(--green); background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
+
+  /* Facts */
+  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+  .fact { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 13px 15px; font-size: 13px; color: var(--dim); }
+  .fact b { color: var(--text); display: block; font-size: 16px; margin-bottom: 1px; }
+
+  /* Machines */
+  .machine { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
+  .mrow { display: flex; flex-wrap: wrap; gap: 14px; align-items: baseline; }
+  .mrow .host { color: #fff; font-weight: 600; }
+  .mrow .meta { color: var(--faint); font-size: 12px; }
+  .mrow .stats { margin-left: auto; color: var(--dim); font-size: 13px; display: flex; gap: 14px; }
+  .mrow b { color: var(--text); }
+  .gchip { font-size: 11px; border-radius: 4px; padding: 0 7px; }
+  .gchip.on { color: var(--green); border: 1px solid var(--green); }
+  .gchip.off { color: var(--amber); border: 1px solid var(--amber); }
+
   .empty, .error { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 28px; color: var(--dim); }
-  code { background: #000; border: 1px solid var(--border); border-radius: 6px; padding: 3px 8px; color: var(--green); font-size: 13px; }
-  footer { margin-top: 36px; color: var(--dim); font-size: 12px; }
+  code { background: #000; border: 1px solid var(--border); border-radius: 6px; padding: 3px 8px; color: var(--green); font-size: 13px; user-select: all; }
+  footer { margin-top: 44px; color: var(--faint); font-size: 12px; line-height: 2; }
 </style>
 </head>
 <body>
-<header><h1>leash</h1><span class="beta">cloud beta</span></header>
-<p class="sub" id="sub">loading fleet…</p>
-<div id="totals" class="totals" hidden></div>
-<div id="machines"></div>
-<footer>
-  Add a machine to this fleet: <code id="addcmd"></code><br><br>
-  Metrics only — leash never uploads prompts, transcripts or file contents.
-  <a href="https://github.com/VicKayro/leash">github.com/VicKayro/leash</a>
-</footer>
+<header><h1>🐕 leash</h1><span class="beta">cloud beta</span><span class="right" id="stamp"></span></header>
+<div id="app"><p style="color:var(--dim);margin-top:40px">loading fleet…</p></div>
+<div id="tip"></div>
+<footer id="foot"></footer>
 <script>
 const token = location.pathname.split('/').filter(Boolean).pop() || ''
-document.getElementById('addcmd').textContent = 'npx -y getleash connect --fleet ' + token
-
-const $ = (id) => document.getElementById(id)
+const $app = document.getElementById('app')
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
-const usd = (n) => '$' + (Number(n) || 0).toFixed(2)
-const ago = (iso) => {
-  const s = (Date.now() - new Date(iso).getTime()) / 1000
-  if (!isFinite(s)) return '?'
+const usd = (n, d = 2) => '$' + (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d })
+const ago = (t) => {
+  const s = (Date.now() - (typeof t === 'number' ? t : new Date(t).getTime())) / 1000
+  if (!isFinite(s) || s < 0) return '?'
   if (s < 90) return 'just now'
   if (s < 5400) return Math.round(s / 60) + ' min ago'
   if (s < 129600) return Math.round(s / 3600) + ' h ago'
   return Math.round(s / 86400) + ' d ago'
 }
+const KIND = { 'github-actions': 'GitHub Actions', 'vercel-cron': 'Vercel', 'render-cron': 'Render', railway: 'Railway', 'cloudflare-worker': 'Cloudflare' }
 
-function machineCard(m) {
-  const s = m.snapshot || {}
-  const t = s.totals || {}
-  const ins = s.insights || {}
-  const sched = s.scheduled || { total: 0, issues: [] }
-  const stale = Date.now() - new Date(m.receivedAt).getTime() > 48 * 3600e3
-  const issues = (sched.issues || []).map((i) =>
-    `<li class="${i.problem === 'zombie' || i.problem === 'failing' ? 'bad' : 'warn'}">✗ ${esc(i.label)} <span style="color:var(--dim)">(${esc(i.source)}, ${esc(i.problem)})</span></li>`).join('')
-  const cloudIssues = ((s.cloudAgents && s.cloudAgents.issues) || []).map((i) =>
-    `<li class="${i.status === 'failing' ? 'bad' : 'warn'}">☁ ${esc(i.repo)}/${esc(i.name)} <span style="color:var(--dim)">(${esc(i.status)}${i.note ? ' — ' + esc(i.note) : ''})</span></li>`).join('')
-  const loops = (s.loops || []).map((l) =>
-    `<li class="warn">↻ ${esc(l.tool)} ×${l.count} in ${esc(l.project)} <span style="color:var(--dim)">(${esc(l.date)}, ~${usd(l.estCostUSD)})</span></li>`).join('')
-  const maxCost = Math.max(1e-9, ...(s.topProjects || []).map((p) => p.costUSD))
-  const projects = (s.topProjects || []).map((p) =>
-    `<li><span class="bar" style="width:${Math.max(4, Math.round(90 * p.costUSD / maxCost))}px"></span>${esc(p.name)} <span style="color:var(--dim)">${usd(p.costUSD)} · ${p.sessions} sessions</span></li>`).join('')
-  const guard = s.guard
-    ? `<span class="good">guard ON — ${[s.guard.dailyUSD && usd(s.guard.dailyUSD) + '/day', s.guard.hourlyUSD && usd(s.guard.hourlyUSD) + '/hour'].filter(Boolean).join(' · ')}</span>`
-    : `<span class="warn">no budget guard</span>`
-  return `<div class="machine">
-    <div class="mhead">
-      <span class="host">${esc(m.machine.host)}</span>
-      <span class="meta">${esc(m.machine.platform)} · getleash ${esc(m.machine.cliVersion)}</span>
-      <span class="badge ${stale ? 'stale' : 'ok'}">${stale ? 'stale — ' : ''}pushed ${ago(m.receivedAt)}</span>
-    </div>
-    <div class="row">
-      <span><b>${usd(t.costUSD)}</b> / ${s.windowDays || 30}d</span>
-      <span><b>${t.sessions ?? 0}</b> sessions</span>
-      <span><b>${ins.nightSessions ?? 0}</b> while sleeping</span>
-      <span><b>${sched.total}</b> scheduled agents</span>
-      <span><b>${(s.cloudAgents && s.cloudAgents.total) || 0}</b> cloud agents${s.cloudAgents && s.cloudAgents.checked ? ` <span style="color:var(--dim)">(${s.cloudAgents.checked} checked live)</span>` : ''}</span>
-      <span>${guard}</span>
-    </div>
-    ${issues || cloudIssues || loops ? `<h3>Needs attention</h3><ul>${issues}${cloudIssues}${loops}</ul>` : '<h3 class="good" style="color:var(--green)">All agents healthy</h3>'}
-    ${projects ? `<h3>Top projects</h3><ul>${projects}</ul>` : ''}
+function aggregate(ms) {
+  const A = { cost: 0, sessions: 0, night: 0, tools: 0, windowDays: 30, daily: new Map(), agents: [], issues: [], lastActivity: 0, topSession: null, activeDays: 0 }
+  for (const m of ms) {
+    const s = m.snapshot || {}
+    A.cost += s.totals?.costUSD || 0
+    A.sessions += s.totals?.sessions || 0
+    A.night += s.insights?.nightSessions || 0
+    A.tools += s.insights?.totalToolCalls || 0
+    A.activeDays = Math.max(A.activeDays, s.insights?.activeDays || 0)
+    A.windowDays = Math.max(A.windowDays, s.windowDays || 30)
+    if (s.lastActivityAt) A.lastActivity = Math.max(A.lastActivity, s.lastActivityAt)
+    const ts = s.insights?.topSession
+    if (ts && (!A.topSession || ts.costUSD > A.topSession.costUSD)) A.topSession = ts
+    for (const d of s.daily || []) A.daily.set(d.date, (A.daily.get(d.date) || 0) + d.costUSD)
+    const host = m.machine?.host || '?'
+    for (const i of s.scheduled?.issues || []) {
+      const sev = i.problem === 'zombie' || i.problem === 'failing' ? 'bad' : 'warn'
+      A.issues.push({ sev, name: i.label, note: i.problem + (i.schedule ? ' · ' + i.schedule : ''), src: host, local: true })
+    }
+    for (const i of s.cloudAgents?.issues || []) {
+      A.issues.push({ sev: i.status === 'failing' ? 'bad' : 'warn', name: (i.name || '').startsWith('/') ? i.repo + i.name : i.repo + '/' + i.name, note: (KIND[i.kind] || i.kind) + ': ' + (i.note || i.status), src: 'cloud' })
+    }
+    // fleet dots: local scheduled agents (count only + issues carry names) + cloud agents
+    const sched = s.scheduled || { total: 0, issues: [] }
+    const badLocal = (sched.issues || []).map((i) => ({ st: i.problem === 'zombie' || i.problem === 'failing' ? 'bad' : 'warn', label: i.label + ' — ' + i.problem, host }))
+    for (const b of badLocal) A.agents.push(b)
+    for (let k = 0; k < Math.max(0, sched.total - badLocal.length); k++) A.agents.push({ st: 'ok', label: 'scheduled agent on ' + host, host })
+    const ca = s.cloudAgents || {}
+    const cloudIssueCount = (ca.issues || []).length
+    for (const i of ca.issues || []) A.agents.push({ st: i.status === 'failing' ? 'bad' : 'warn', label: (i.repo || '') + '/' + (i.name || '') + ' — ' + (i.note || i.status), host: 'cloud' })
+    const checkedOk = Math.max(0, (ca.checked || 0) - cloudIssueCount)
+    for (let k = 0; k < checkedOk; k++) A.agents.push({ st: 'ok', label: 'cloud agent (checked live)', host: 'cloud' })
+    for (let k = 0; k < Math.max(0, (ca.total || 0) - (ca.checked || 0)); k++) A.agents.push({ st: 'unknown', label: 'cloud agent (not checked — npx getleash link)', host: 'cloud' })
+  }
+  return A
+}
+
+function heroHTML(A, ms) {
+  const monthly = A.cost * (30 / A.windowDays)
+  const roi = monthly > 200 ? { m: monthly / 200, p: '$200/mo Max' } : monthly > 20 ? { m: monthly / 20, p: '$20/mo Pro' } : null
+  const liveNow = A.lastActivity && Date.now() - A.lastActivity < 15 * 60_000
+  const chips = []
+  if (liveNow) chips.push(`<span class="chip live"><span class="pulse"></span>agents active ${esc(ago(A.lastActivity))}</span>`)
+  if (roi) chips.push(`<span class="chip">≈ <b>${roi.m.toFixed(1)}×</b>&nbsp;a ${roi.p} subscription</span>`)
+  chips.push(`<span class="chip"><b>${A.sessions.toLocaleString('en-US')}</b>&nbsp;sessions</span>`)
+  if (A.night) chips.push(`<span class="chip">🌙 <b>${A.night}</b>&nbsp;ran while you slept</span>`)
+  if (ms.length > 1) chips.push(`<span class="chip"><b>${ms.length}</b>&nbsp;machines</span>`)
+  return `<div class="hero">
+    <div class="pre">Your agents did</div>
+    <div class="big"><span class="sign">$</span><span id="bignum" data-target="${A.cost.toFixed(0)}">0</span></div>
+    <div class="post">of AI work in the last ${A.windowDays} days${A.cost === 0 ? ' — run some agents and come back' : ''}</div>
+    <div class="chips">${chips.join('')}</div>
   </div>`
 }
 
+function pulseHTML(A) {
+  const days = [...A.daily.entries()].sort((a, b) => a[0].localeCompare(b[0])).slice(-30)
+  if (days.length < 2) return ''
+  const max = Math.max(0.01, ...days.map((d) => d[1]))
+  const cols = days.map(([date, c]) => {
+    const h = c > 0 ? Math.max(4, Math.round((c / max) * 100)) : 2
+    return `<div class="col${c === 0 ? ' zero' : ''}" data-tip="${esc(date)} — <b>${usd(c)}</b>"><div class="bar" style="height:${h}%"></div></div>`
+  }).join('')
+  const busiest = days.reduce((a, b) => (b[1] > a[1] ? b : a))
+  return `<section><h2>The pulse <span class="sub">· busiest day ${esc(busiest[0])} (${usd(busiest[1])})</span></h2>
+    <div class="card"><div class="pulsechart">${cols}</div>
+    <div class="xlabels"><span>${esc(days[0][0])}</span><span>${esc(days[Math.floor(days.length / 2)][0])}</span><span>${esc(days[days.length - 1][0])}</span></div></div>
+  </section>`
+}
+
+function fleetHTML(A) {
+  if (!A.agents.length) return ''
+  const rank = { bad: 0, warn: 1, unknown: 2, ok: 3 }
+  const dots = [...A.agents].sort((a, b) => rank[a.st] - rank[b.st])
+    .map((a) => `<div class="dot ${a.st}" data-tip="${esc(a.label)}"></div>`).join('')
+  const n = (st) => A.agents.filter((a) => a.st === st).length
+  const bad = n('bad'), warn = n('warn')
+  const state = bad + warn === 0 ? 'all healthy' : `${bad + warn} need${bad + warn === 1 ? 's' : ''} attention`
+  return `<section><h2>Your fleet <span class="sub">· ${A.agents.length} agents · ${state}</span></h2>
+    <div class="card"><div class="dots">${dots}</div>
+    <div class="legend">${bad ? `<span class="l-bad">${bad} down</span>` : ''}${warn ? `<span class="l-warn">${warn} at risk</span>` : ''}<span class="l-ok">${n('ok')} healthy</span>${n('unknown') ? `<span class="l-unknown">${n('unknown')} unchecked</span>` : ''}</div></div>
+  </section>`
+}
+
+function attnHTML(A) {
+  if (!A.issues.length) return `<section><h2>Needs attention</h2><div class="allgood">✓ Nothing. Every agent leash can see is healthy — enjoy it while it lasts.</div></section>`
+  const rows = A.issues.sort((a, b) => (a.sev === 'bad' ? 0 : 1) - (b.sev === 'bad' ? 0 : 1)).map((i) =>
+    `<div class="row ${i.sev}"><span class="icon">${i.sev === 'bad' ? '✗' : '⚠'}</span><span class="name">${esc(i.name)}</span><span class="note">${esc(i.note)}</span><span class="src">${esc(i.src)}</span></div>`).join('')
+  const hasLocal = A.issues.some((i) => i.local)
+  return `<section><h2>Needs attention <span class="sub">· ${A.issues.length}</span></h2><div class="attn">${rows}
+    ${hasLocal ? `<div class="fixhint">→ run <code>npx getleash</code> on that machine: the report gives the exact copy-paste fix for each one.</div>` : ''}</div></section>`
+}
+
+function factsHTML(A, ms) {
+  const f = []
+  if (A.topSession && A.topSession.costUSD >= 1) f.push(`<div class="fact"><b>${usd(A.topSession.costUSD)}</b>💸 biggest single session — ${esc(A.topSession.project)}, ${esc(A.topSession.date)}</div>`)
+  if (A.activeDays) f.push(`<div class="fact"><b>${A.activeDays} / ${Math.min(A.windowDays, 30)} days</b>⚡ your agents worked</div>`)
+  if (A.tools) f.push(`<div class="fact"><b>${A.tools.toLocaleString('en-US')}</b>🔧 tool calls executed</div>`)
+  const guards = ms.filter((m) => m.snapshot?.guard).length
+  f.push(guards === ms.length
+    ? `<div class="fact"><b>guard on</b>🛡 every machine has a spend cap</div>`
+    : `<div class="fact"><b>${ms.length - guards} machine${ms.length - guards > 1 ? 's' : ''} uncapped</b>🛡 fix: <code>npx getleash guard --daily 25</code></div>`)
+  return f.length ? `<section><h2>The month in agents</h2><div class="facts">${f.join('')}</div></section>` : ''
+}
+
+function machinesHTML(ms) {
+  const rows = ms.map((m) => {
+    const s = m.snapshot || {}
+    const g = s.guard
+    return `<div class="machine"><div class="mrow">
+      <span class="host">${esc(m.machine?.host)}</span>
+      <span class="meta">${esc(m.machine?.platform)} · getleash ${esc(m.machine?.cliVersion)} · pushed ${esc(ago(m.receivedAt))}</span>
+      <span class="stats"><span><b>${usd(s.totals?.costUSD || 0, 0)}</b>/${s.windowDays || 30}d</span><span><b>${s.totals?.sessions ?? 0}</b> sessions</span>
+      <span class="gchip ${g ? 'on' : 'off'}">${g ? 'guard ' + [g.dailyUSD && usd(g.dailyUSD, 0) + '/d', g.hourlyUSD && usd(g.hourlyUSD, 0) + '/h'].filter(Boolean).join(' ') : 'no guard'}</span></span>
+    </div></div>`
+  }).join('')
+  return `<section><h2>Machines <span class="sub">· ${ms.length}</span></h2>${rows}</section>`
+}
+
+function countUp() {
+  const el = document.getElementById('bignum')
+  if (!el) return
+  const target = Number(el.dataset.target) || 0
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches || target === 0) {
+    el.textContent = target.toLocaleString('en-US')
+    return
+  }
+  const t0 = performance.now()
+  const dur = 1100
+  const step = (t) => {
+    const p = Math.min(1, (t - t0) / dur)
+    el.textContent = Math.round(target * (1 - Math.pow(1 - p, 3))).toLocaleString('en-US')
+    if (p < 1) requestAnimationFrame(step)
+  }
+  requestAnimationFrame(step)
+}
+
+function wireTips() {
+  const tip = document.getElementById('tip')
+  document.querySelectorAll('[data-tip]').forEach((el) => {
+    el.addEventListener('mouseenter', () => { tip.innerHTML = el.dataset.tip; tip.style.display = 'block' })
+    el.addEventListener('mousemove', (e) => {
+      tip.style.left = Math.min(e.clientX + 12, innerWidth - tip.offsetWidth - 8) + 'px'
+      tip.style.top = (e.clientY - tip.offsetHeight - 10 < 8 ? e.clientY + 16 : e.clientY - tip.offsetHeight - 10) + 'px'
+    })
+    el.addEventListener('mouseleave', () => { tip.style.display = 'none' })
+  })
+}
+
 async function load() {
+  const foot = document.getElementById('foot')
   if (!/^flt_[a-f0-9]{16,64}$/.test(token)) {
-    $('sub').textContent = ''
-    $('machines').innerHTML = '<div class="error">Invalid fleet URL. Run <code>npx -y getleash connect</code> to get yours.</div>'
+    $app.innerHTML = '<div class="error" style="margin-top:32px">Invalid fleet URL. Run <code>npx -y getleash connect</code> to get yours.</div>'
     return
   }
   let data
@@ -121,27 +280,23 @@ async function load() {
     data = await r.json()
     if (!r.ok) throw new Error(data.error || r.status)
   } catch (e) {
-    $('sub').textContent = ''
-    $('machines').innerHTML = '<div class="error">Could not load fleet: ' + esc(e.message) + '</div>'
+    $app.innerHTML = '<div class="error" style="margin-top:32px">Could not load fleet: ' + esc(e.message) + '</div>'
     return
   }
   const ms = data.machines || []
+  foot.innerHTML = `Add a machine to this fleet: <code>npx -y getleash connect --fleet ${esc(token)}</code><br>
+    Metrics only — leash never uploads prompts, transcripts, file paths or contents. This URL is private: anyone who has it can read these metrics.<br>
+    <a href="https://github.com/VicKayro/leash">github.com/VicKayro/leash</a> · MIT · <code>npx getleash</code> for the full report`
   if (!ms.length) {
-    $('sub').textContent = ''
-    $('machines').innerHTML = '<div class="empty">No machines yet. On the machine you want to watch, run:<br><br><code>npx -y getleash connect --fleet ' + token + '</code></div>'
+    $app.innerHTML = `<div class="empty" style="margin-top:32px">No machines yet. On the machine you want to watch, run:<br><br><code>npx -y getleash connect --fleet ${esc(token)}</code></div>`
     return
   }
-  const cost = ms.reduce((a, m) => a + ((m.snapshot?.totals?.costUSD) || 0), 0)
-  const sessions = ms.reduce((a, m) => a + ((m.snapshot?.totals?.sessions) || 0), 0)
-  const alerts = ms.reduce((a, m) => a + ((m.snapshot?.scheduled?.issues?.length) || 0) + ((m.snapshot?.cloudAgents?.issues?.length) || 0) + ((m.snapshot?.loops?.length) || 0), 0)
-  $('sub').textContent = 'Your agent fleet, across machines. Data refreshes on every push.'
-  $('totals').hidden = false
-  $('totals').innerHTML = [
-    ['machines', ms.length], ['spend / 30d', usd(cost)], ['sessions', sessions],
-    [alerts === 1 ? 'alert' : 'alerts', alerts],
-  ].map(([l, n]) => `<div class="stat"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('')
-  $('machines').innerHTML = ms.map(machineCard).join('')
-  document.title = 'leash — fleet (' + ms.length + ')'
+  const A = aggregate(ms)
+  document.getElementById('stamp').textContent = 'updated ' + ago(ms[0].receivedAt)
+  $app.innerHTML = heroHTML(A, ms) + attnHTML(A) + pulseHTML(A) + fleetHTML(A) + factsHTML(A, ms) + machinesHTML(ms)
+  document.title = `leash — ${usd(A.cost, 0)} / ${A.windowDays}d`
+  countUp()
+  wireTips()
 }
 load()
 </script>
