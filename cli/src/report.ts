@@ -263,8 +263,18 @@ export function renderReport(r: FleetReport): string {
     push('  ' + c.bold('Next: ') + `an agent is running right now — watch its cost tick live:`)
     push('  ' + c.cyan('npx getleash watch'))
   } else {
-    push('  ' + c.bold('Next: ') + 'be told when a cron dies or a loop starts, wherever it runs:')
-    push('  ' + c.cyan('npx getleash connect'))
+    let fleet: any = null
+    try {
+      const leashDir = process.env.LEASH_DIR || path.join(os.homedir(), '.leash')
+      fleet = JSON.parse(fs.readFileSync(path.join(leashDir, 'cloud.json'), 'utf8'))
+    } catch {}
+    if (fleet?.token) {
+      push('  ' + c.bold('Next: ') + 'fresh data just pushed — your fleet dashboard:')
+      push('  ' + c.cyan(`${fleet.url || 'https://getleash.vercel.app'}/f/${fleet.token}`))
+    } else {
+      push('  ' + c.bold('Next: ') + 'put your whole fleet on one page — free, no signup:')
+      push('  ' + c.cyan('npx getleash connect'))
+    }
   }
   push()
   push(c.dim('  This machine only — cloud agents (GitHub Actions, Vercel) are invisible'))

@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>leash — fleet</title>
+<style>
+  :root {
+    --bg: #0b0f14; --panel: #11161d; --border: #1e2733;
+    --text: #d7e0ea; --dim: #7a8899; --green: #4ade80; --amber: #fbbf24; --red: #f87171;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 14px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    padding: 32px 16px 64px; max-width: 860px; margin: 0 auto;
+  }
+  a { color: var(--green); text-decoration: none; }
+  header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px; }
+  header h1 { font-size: 20px; letter-spacing: .5px; }
+  header .beta { color: var(--amber); font-size: 12px; border: 1px solid var(--amber); border-radius: 4px; padding: 0 6px; }
+  .sub { color: var(--dim); margin-bottom: 24px; }
+  .totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 28px; }
+  .stat { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
+  .stat .n { font-size: 22px; color: var(--green); }
+  .stat .l { color: var(--dim); font-size: 12px; }
+  .machine { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; margin-bottom: 18px; }
+  .mhead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+  .mhead .host { font-size: 16px; color: #fff; }
+  .mhead .meta { color: var(--dim); font-size: 12px; }
+  .badge { font-size: 11px; border-radius: 4px; padding: 1px 7px; }
+  .badge.ok { color: var(--green); border: 1px solid var(--green); }
+  .badge.stale { color: var(--amber); border: 1px solid var(--amber); }
+  .row { display: flex; flex-wrap: wrap; gap: 18px; color: var(--dim); font-size: 13px; margin-bottom: 12px; }
+  .row b { color: var(--text); font-weight: 600; }
+  h3 { font-size: 12px; color: var(--dim); text-transform: uppercase; letter-spacing: 1px; margin: 14px 0 6px; }
+  ul { list-style: none; }
+  li { padding: 2px 0; font-size: 13px; }
+  .warn { color: var(--amber); }
+  .bad { color: var(--red); }
+  .good { color: var(--green); }
+  .bar { display: inline-block; height: 8px; background: var(--green); opacity: .7; border-radius: 2px; vertical-align: middle; margin-right: 8px; }
+  .empty, .error { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 28px; color: var(--dim); }
+  code { background: #000; border: 1px solid var(--border); border-radius: 6px; padding: 3px 8px; color: var(--green); font-size: 13px; }
+  footer { margin-top: 36px; color: var(--dim); font-size: 12px; }
+</style>
+</head>
+<body>
+<header><h1>leash</h1><span class="beta">cloud beta</span></header>
+<p class="sub" id="sub">loading fleet…</p>
+<div id="totals" class="totals" hidden></div>
+<div id="machines"></div>
+<footer>
+  Add a machine to this fleet: <code id="addcmd"></code><br><br>
+  Metrics only — leash never uploads prompts, transcripts or file contents.
+  <a href="https://github.com/VicKayro/leash">github.com/VicKayro/leash</a>
+</footer>
+<script>
+const token = location.pathname.split('/').filter(Boolean).pop() || ''
+document.getElementById('addcmd').textContent = 'npx -y getleash connect --fleet ' + token
+
+const $ = (id) => document.getElementById(id)
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
+const usd = (n) => '$' + (Number(n) || 0).toFixed(2)
+const ago = (iso) => {
+  const s = (Date.now() - new Date(iso).getTime()) / 1000
+  if (!isFinite(s)) return '?'
+  if (s < 90) return 'just now'
+  if (s < 5400) return Math.round(s / 60) + ' min ago'
+  if (s < 129600) return Math.round(s / 3600) + ' h ago'
+  return Math.round(s / 86400) + ' d ago'
+}
+
+function machineCard(m) {
+  const s = m.snapshot || {}
+  const t = s.totals || {}
+  const ins = s.insights || {}
+  const sched = s.scheduled || { total: 0, issues: [] }
+  const stale = Date.now() - new Date(m.receivedAt).getTime() > 48 * 3600e3
+  const issues = (sched.issues || []).map((i) =>
+    `<li class="${i.problem === 'zombie' || i.problem === 'failing' ? 'bad' : 'warn'}">✗ ${esc(i.label)} <span style="color:var(--dim)">(${esc(i.source)}, ${esc(i.problem)})</span></li>`).join('')
+  const loops = (s.loops || []).map((l) =>
+    `<li class="warn">↻ ${esc(l.tool)} ×${l.count} in ${esc(l.project)} <span style="color:var(--dim)">(${esc(l.date)}, ~${usd(l.estCostUSD)})</span></li>`).join('')
+  const maxCost = Math.max(1e-9, ...(s.topProjects || []).map((p) => p.costUSD))
+  const projects = (s.topProjects || []).map((p) =>
+    `<li><span class="bar" style="width:${Math.max(4, Math.round(90 * p.costUSD / maxCost))}px"></span>${esc(p.name)} <span style="color:var(--dim)">${usd(p.costUSD)} · ${p.sessions} sessions</span></li>`).join('')
+  const guard = s.guard
+    ? `<span class="good">guard ON — ${[s.guard.dailyUSD && usd(s.guard.dailyUSD) + '/day', s.guard.hourlyUSD && usd(s.guard.hourlyUSD) + '/hour'].filter(Boolean).join(' · ')}</span>`
+    : `<span class="warn">no budget guard</span>`
+  return `<div class="machine">
+    <div class="mhead">
+      <span class="host">${esc(m.machine.host)}</span>
+      <span class="meta">${esc(m.machine.platform)} · getleash ${esc(m.machine.cliVersion)}</span>
+      <span class="badge ${stale ? 'stale' : 'ok'}">${stale ? 'stale — ' : ''}pushed ${ago(m.receivedAt)}</span>
+    </div>
+    <div class="row">
+      <span><b>${usd(t.costUSD)}</b> / ${s.windowDays || 30}d</span>
+      <span><b>${t.sessions ?? 0}</b> sessions</span>
+      <span><b>${ins.nightSessions ?? 0}</b> while sleeping</span>
+      <span><b>${sched.total}</b> scheduled agents</span>
+      <span><b>${(s.cloudAgents && s.cloudAgents.total) || 0}</b> cloud agents</span>
+      <span>${guard}</span>
+    </div>
+    ${issues || loops ? `<h3>Needs attention</h3><ul>${issues}${loops}</ul>` : '<h3 class="good" style="color:var(--green)">All agents healthy</h3>'}
+    ${projects ? `<h3>Top projects</h3><ul>${projects}</ul>` : ''}
+  </div>`
+}
+
+async function load() {
+  if (!/^flt_[a-f0-9]{16,64}$/.test(token)) {
+    $('sub').textContent = ''
+    $('machines').innerHTML = '<div class="error">Invalid fleet URL. Run <code>npx -y getleash connect</code> to get yours.</div>'
+    return
+  }
+  let data
+  try {
+    const r = await fetch('/api/fleet?token=' + token)
+    data = await r.json()
+    if (!r.ok) throw new Error(data.error || r.status)
+  } catch (e) {
+    $('sub').textContent = ''
+    $('machines').innerHTML = '<div class="error">Could not load fleet: ' + esc(e.message) + '</div>'
+    return
+  }
+  const ms = data.machines || []
+  if (!ms.length) {
+    $('sub').textContent = ''
+    $('machines').innerHTML = '<div class="empty">No machines yet. On the machine you want to watch, run:<br><br><code>npx -y getleash connect --fleet ' + token + '</code></div>'
+    return
+  }
+  const cost = ms.reduce((a, m) => a + ((m.snapshot?.totals?.costUSD) || 0), 0)
+  const sessions = ms.reduce((a, m) => a + ((m.snapshot?.totals?.sessions) || 0), 0)
+  const alerts = ms.reduce((a, m) => a + ((m.snapshot?.scheduled?.issues?.length) || 0) + ((m.snapshot?.loops?.length) || 0), 0)
+  $('sub').textContent = 'Your agent fleet, across machines. Data refreshes on every push.'
+  $('totals').hidden = false
+  $('totals').innerHTML = [
+    ['machines', ms.length], ['spend / 30d', usd(cost)], ['sessions', sessions],
+    [alerts === 1 ? 'alert' : 'alerts', alerts],
+  ].map(([l, n]) => `<div class="stat"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('')
+  $('machines').innerHTML = ms.map(machineCard).join('')
+  document.title = 'leash — fleet (' + ms.length + ')'
+}
+load()
+</script>
+</body>
+</html>

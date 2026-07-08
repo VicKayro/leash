@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/f/:token", "destination": "/fleet.html" }
+  ]
+}

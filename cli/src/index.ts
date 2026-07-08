@@ -6,10 +6,11 @@ import { scanCloud } from './scan/cloud'
 import { renderReport, renderShareCard } from './report'
 import { guardCommand } from './guard'
 import { watchCommand } from './watch'
+import { connectCommand, pushCommand, pushReport, readCloudConfig } from './cloud'
 import type { FleetReport } from './types'
 
 const HELP = `
-leash — see what your agents did last night. No signup, nothing leaves this machine.
+leash — see what your agents did last night. No signup. Local by default; nothing leaves this machine unless you \`connect\`.
 
 Usage:
   npx getleash            fleet report (Claude Code + launchd + cron)
@@ -17,7 +18,12 @@ Usage:
   npx getleash --share    shareable fleet card
   npx getleash --json     machine-readable output
   npx getleash --days N   window in days (default 30)
-  npx getleash connect    leash cloud waitlist (alerts, kill switch, replay)
+
+leash cloud (free beta — fleet dashboard across machines):
+  npx getleash connect    get your private fleet URL, auto-push on session end
+  npx getleash push       push a fresh snapshot now
+  npx getleash connect --fleet <token>   add this machine to an existing fleet
+  npx getleash connect --off             disconnect
 
 Budget guard (hard spend caps for Claude Code — it has no native ones):
   npx getleash guard --daily 25    block tool calls past $25/day
@@ -26,25 +32,18 @@ Budget guard (hard spend caps for Claude Code — it has no native ones):
   npx getleash guard --off         remove the guard
 `
 
-const CONNECT = `
-leash cloud — the scan is a snapshot. The fear is continuous.
-
-Coming: email/Discord alert when a cron dies or a loop starts,
-the budget guard synced across machines, session replay.
-
-Join the waitlist: 👍 the issue — and drop your email in a comment
-to get beta access first (onboarded personally):
-  https://github.com/VicKayro/leash/issues/1
-`
-
 async function main() {
   const args = process.argv.slice(2)
   if (args.includes('--help') || args.includes('-h')) {
     console.log(HELP)
     return
   }
-  if (args.includes('connect')) {
-    console.log(CONNECT)
+  if (args[0] === 'connect') {
+    await connectCommand(args.slice(1))
+    return
+  }
+  if (args[0] === 'push') {
+    await pushCommand(args.slice(1))
     return
   }
   if (args[0] === 'guard') {
@@ -85,6 +84,10 @@ async function main() {
   } else {
     console.log(renderReport(report))
   }
+
+  // Connected machines refresh their dashboard on every run. Silent, fail-open.
+  const cloudConfig = readCloudConfig()
+  if (cloudConfig) await pushReport(report, cloudConfig).catch(() => {})
 }
 
 main().catch((err) => {

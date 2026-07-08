@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>leash — see what your agents did last night</title>
+<meta name="description" content="Fleet dashboard for Claude Code agents. Costs, loops, dead crons — across all your machines. Free beta.">
+<style>
+  :root { --bg:#0b0f14; --panel:#11161d; --border:#1e2733; --text:#d7e0ea; --dim:#7a8899; --green:#4ade80; --amber:#fbbf24; }
+  * { box-sizing:border-box; margin:0; }
+  body { background:var(--bg); color:var(--text); font:15px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; max-width:720px; margin:0 auto; padding:64px 20px; }
+  h1 { font-size:26px; margin-bottom:4px; } h1 .beta { color:var(--amber); font-size:13px; border:1px solid var(--amber); border-radius:4px; padding:1px 7px; vertical-align:middle; }
+  .tag { color:var(--dim); margin-bottom:36px; }
+  .cmd { background:#000; border:1px solid var(--border); border-radius:8px; padding:16px 18px; color:var(--green); font-size:16px; margin:10px 0 6px; user-select:all; }
+  .hint { color:var(--dim); font-size:13px; margin-bottom:28px; }
+  h2 { font-size:15px; color:var(--green); margin:28px 0 8px; }
+  ul { list-style:none; } li { padding:3px 0; color:var(--dim); } li b { color:var(--text); font-weight:600; }
+  a { color:var(--green); }
+  footer { margin-top:48px; color:var(--dim); font-size:13px; }
+</style>
+</head>
+<body>
+<h1>leash <span class="beta">cloud beta</span></h1>
+<p class="tag">See what your Claude Code agents did last night — now across all your machines.</p>
+
+<div class="cmd">npx -y getleash connect</div>
+<p class="hint">Free. No signup, no email — you get a private fleet URL. Metrics only: leash never uploads prompts, transcripts or file contents.</p>
+
+<h2>What you get</h2>
+<ul>
+  <li><b>Fleet dashboard</b> — every machine, one page: spend, sessions, agents</li>
+  <li><b>Auto-refresh</b> — each Claude Code session pushes a fresh snapshot when it ends</li>
+  <li><b>Health at a glance</b> — dead crons, zombies, runaway loops, missing budget guards</li>
+</ul>
+
+<h2>Local, no cloud</h2>
+<ul>
+  <li><b>npx getleash</b> — full fleet report in your terminal (nothing leaves the machine)</li>
+  <li><b>npx getleash watch</b> — live monitor: cost ticking, burn rate per session</li>
+  <li><b>npx getleash guard --daily 25</b> — hard spend cap for Claude Code (nobody else has one)</li>
+</ul>
+
+<footer>Open source — <a href="https://github.com/VicKayro/leash">github.com/VicKayro/leash</a> · MIT</footer>
+</body>
+</html>

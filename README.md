@@ -109,20 +109,28 @@ npx getleash --days N         window in days (default 30)
 npx getleash guard --daily N --hourly M  hard spend caps (see above)
 npx getleash guard --status   cap + today's spend
 npx getleash guard --off      remove the guard
-npx getleash connect          leash cloud waitlist
+npx getleash connect          free fleet dashboard in the cloud (see below)
+npx getleash push             refresh your cloud dashboard now
+npx getleash connect --off    disconnect from the cloud
 ```
+
+## leash cloud — your fleet on one page (free beta)
+
+The scan is a snapshot of one machine. The fear is continuous, and fleets span laptops, servers, VMs:
+
+```
+npx -y getleash connect
+```
+
+No signup, no email. You get a private URL like `getleash.vercel.app/f/flt_…` showing every connected machine: spend, sessions, dead crons, loops, guard status. A `SessionEnd` hook refreshes it after each Claude Code session, and every `npx getleash` run pushes fresh data too.
+
+- Add another machine to the same fleet: `npx -y getleash connect --fleet <your-token>`
+- The URL is a capability: anyone who has it can view your fleet metrics. Keep it private.
+- Coming next: email/Discord alerts when a cron dies or a loop starts, budget guard synced across machines. **[Waitlist for alerts →](https://github.com/VicKayro/leash/issues/1)** — a 👍 is enough.
 
 ## Privacy
 
-The scan is 100% local. No network calls, no telemetry, no account. Your prompts, your costs, your mess: none of it leaves your machine.
-
-## Coming next — leash cloud
-
-The scan is a snapshot. The fear is continuous: *what about the next time an agent loops at 3am?*
-
-**leash cloud** (in the works): connect your machines, get an email/Discord ping when a cron dies or a loop starts, hard budgets with a kill switch (a Claude Code `PreToolUse` hook that actually blocks the call — yes, that works, and no, Claude Code has no native spend limit), session replay across machines.
-
-**[→ Join the waitlist](https://github.com/VicKayro/leash/issues/1)** — a 👍 is enough. The CLI stays free and open source.
+The local scan makes no network calls, no telemetry, no account. `connect` is opt-in and uploads **metrics only** — costs, counts, agent names and health. Never prompts, transcripts, file paths or file contents. `connect --off` removes the hook and the token.
 
 ## Dev
 
