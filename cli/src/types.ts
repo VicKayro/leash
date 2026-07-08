@@ -9,10 +9,16 @@ export interface ProjectStats {
 }
 
 export interface CloudAgent {
-  repo: string // folder name of the local repo
-  kind: 'github-actions' | 'vercel-cron'
+  repo: string // local repo folder, or project/account name for platform-fetched agents
+  kind: 'github-actions' | 'vercel-cron' | 'render-cron' | 'railway' | 'cloudflare-worker'
   name: string // workflow file or cron path
   schedule: string | null
+  // live health, filled by enrichCloudAgents when a GitHub token is available locally
+  slug?: string | null // owner/repo parsed from the git remote
+  file?: string | null // workflow filename with extension, to match the GitHub API
+  status?: 'ok' | 'failing' | 'disabled' | 'stale' | 'unknown'
+  note?: string | null
+  url?: string | null
 }
 
 export interface LoopIncident {

@@ -5,7 +5,9 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
 const cli = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'dist', 'index.js')
-const run = (...args) => execFileSync('node', [cli, ...args], { encoding: 'utf8' })
+// LEASH_OFFLINE: tests must never depend on platform APIs or local logins
+const run = (...args) =>
+  execFileSync('node', [cli, ...args], { encoding: 'utf8', env: { ...process.env, LEASH_OFFLINE: '1' } })
 
 test('--json outputs a valid fleet report', () => {
   const report = JSON.parse(run('--json'))

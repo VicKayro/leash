@@ -32,6 +32,19 @@ function candidateRepos(cwds: string[]): string[] {
   return [...set].slice(0, MAX_DIRS)
 }
 
+// owner/repo from the git remote, so live health checks know what to ask GitHub.
+export function repoSlug(repoDir: string): string | null {
+  try {
+    const cfg = fs.readFileSync(path.join(repoDir, '.git', 'config'), 'utf8')
+    const m = cfg.match(
+      /url\s*=\s*(?:git@github\.com:|https:\/\/github\.com\/|ssh:\/\/git@github\.com\/)([^/\s]+\/[^/\s]+?)(?:\.git)?\s*$/m,
+    )
+    return m ? m[1] : null
+  } catch {
+    return null
+  }
+}
+
 function scanRepo(repo: string): CloudAgent[] {
   const found: CloudAgent[] = []
   const repoName = path.basename(repo)
@@ -44,6 +57,7 @@ function scanRepo(repo: string): CloudAgent[] {
     } catch {
       files = []
     }
+    const slug = files.length ? repoSlug(repo) : null
     for (const f of files) {
       try {
         const src = fs.readFileSync(path.join(wfDir, f), 'utf8')
@@ -54,6 +68,8 @@ function scanRepo(repo: string): CloudAgent[] {
           kind: 'github-actions',
           name: f.replace(/\.ya?ml$/, ''),
           schedule: cron ? cron[1].trim() : null,
+          slug,
+          file: f,
         })
       } catch {
         continue
@@ -85,4 +101,23 @@ export function scanCloud(cwds: Array<string | null>): CloudAgent[] {
   const all: CloudAgent[] = []
   for (const r of repos) all.push(...scanRepo(r))
   return all
+}
+
+// Static repo scan + live agents from connected platforms + GitHub health.
+// GitHub enrichment only touches workflows found locally, so it can run in
+// parallel with the platform fetches.
+export async function collectCloud(cwds: Array<string | null>): Promise<CloudAgent[]> {
+  const { enrichCloudAgents } = await import('./github')
+  const { providerAgents } = await import('./providers')
+  const staticAgents = scanCloud(cwds)
+  const [{ agents: platform, active }] = await Promise.all([
+    providerAgents(),
+    enrichCloudAgents(staticAgents),
+  ])
+  // The platform API sees ALL Vercel crons (not just local repos) with real
+  // status — when it's connected, it replaces the static vercel.json guesses.
+  return [
+    ...(active.includes('vercel') ? staticAgents.filter((a) => a.kind !== 'vercel-cron') : staticAgents),
+    ...platform,
+  ]
 }

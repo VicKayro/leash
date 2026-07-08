@@ -2,7 +2,8 @@ import { scanClaude } from './scan/claude'
 import { scanLaunchd } from './scan/launchd'
 import { scanCron } from './scan/cron'
 import { scanSystemd } from './scan/systemd'
-import { scanCloud } from './scan/cloud'
+import { collectCloud } from './scan/cloud'
+import { linkCommand } from './link'
 import { renderReport, renderShareCard } from './report'
 import { guardCommand } from './guard'
 import { watchCommand } from './watch'
@@ -18,6 +19,12 @@ Usage:
   npx getleash --share    shareable fleet card
   npx getleash --json     machine-readable output
   npx getleash --days N   window in days (default 30)
+
+Cloud platforms (GitHub Actions, Vercel, Render, Railway, Cloudflare):
+  npx getleash link       see which platforms are connected + how to add one
+  npx getleash link render <token>       health-check your Render agents too
+  (GitHub and Vercel auto-connect through your local gh / vercel logins.
+   Read-only, tokens go only to their own platform. Skip all: --offline)
 
 leash cloud (free beta — fleet dashboard across machines):
   npx getleash connect    get your private fleet URL, auto-push on session end
@@ -46,6 +53,10 @@ async function main() {
     await pushCommand(args.slice(1))
     return
   }
+  if (args[0] === 'link') {
+    await linkCommand(args.slice(1))
+    return
+  }
   if (args[0] === 'guard') {
     guardCommand(args.slice(1))
     return
@@ -67,7 +78,8 @@ async function main() {
     Promise.resolve().then(scanCron),
     Promise.resolve().then(scanSystemd),
   ])
-  const cloud = scanCloud(claude.projects.map((p) => p.cwd))
+  if (args.includes('--offline')) process.env.LEASH_OFFLINE = '1'
+  const cloud = await collectCloud(claude.projects.map((p) => p.cwd))
 
   const report: FleetReport = {
     generatedAt: new Date().toISOString(),

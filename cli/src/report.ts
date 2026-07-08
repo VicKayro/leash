@@ -73,7 +73,40 @@ function buildActions(r: FleetReport): Action[] {
       })
     }
   }
+  for (const a of r.cloud) {
+    const platform = KIND_LABELS[a.kind] ?? a.kind
+    if (a.status === 'failing') {
+      actions.push({
+        title: `${cloudName(a)} is failing in the cloud`,
+        why: `${platform}: ${a.note ?? 'last run failed'}. See it:`,
+        cmd: a.url ?? null,
+      })
+    } else if (a.status === 'stale') {
+      actions.push({
+        title: `${cloudName(a)} stopped running`,
+        why: `${platform}: ${a.note ?? 'no recent runs'}. Schedulers silently stop on inactive projects — check it:`,
+        cmd: a.url ?? null,
+      })
+    } else if (a.status === 'disabled') {
+      actions.push({
+        title: `${cloudName(a)} is turned off in the cloud`,
+        why: `${platform}: still defined, but the platform has it disabled (${a.note ?? 'disabled'}). Re-enable it:`,
+        cmd: a.url ?? null,
+      })
+    }
+  }
   return actions
+}
+
+const cloudName = (a: { repo: string; name: string }) =>
+  a.name.startsWith('/') ? a.repo + a.name : `${a.repo}/${a.name}`
+
+const KIND_LABELS: Record<string, string> = {
+  'github-actions': 'GitHub Actions',
+  'vercel-cron': 'Vercel cron',
+  'render-cron': 'Render cron',
+  railway: 'Railway',
+  'cloudflare-worker': 'Cloudflare Worker',
 }
 
 export function warningCount(r: FleetReport): number {
@@ -127,9 +160,12 @@ export function renderReport(r: FleetReport): string {
       )
     }
     if (r.cloud.length > 0) {
+      const checked = r.cloud.filter((a) => a.status && a.status !== 'unknown').length
       push(
         `  Plus ${c.bold(String(r.cloud.length))} agents scheduled in the cloud ` +
-          c.dim('(found in your repos — health unknown from here).'),
+          (checked > 0
+            ? c.dim(`(${checked} checked live with your own platform logins).`)
+            : c.dim('(found in your repos — health unknown from here).')),
       )
     }
   }
@@ -211,19 +247,34 @@ export function renderReport(r: FleetReport): string {
 
   // ── Cloud-scheduled agents (defined in local repos) ──────────────
   if (r.cloud.length > 0) {
+    const checked = r.cloud.filter((a) => a.status && a.status !== 'unknown').length
+    // Problems first, then the healthy tail.
+    const order = { failing: 0, disabled: 1, stale: 2, unknown: 3, ok: 4 } as const
+    const sorted = [...r.cloud].sort(
+      (a, b) => order[a.status ?? 'unknown'] - order[b.status ?? 'unknown'],
+    )
     push()
     push('  ' + c.bold('Cloud-scheduled agents found in your repos') + c.dim(` · ${r.cloud.length}`))
-    for (const a of r.cloud.slice(0, 10)) {
-      push(
-        '  ' +
-          c.dim('⟳ ') +
-          `${a.repo}/${a.name}` +
-          c.dim(`  ${a.kind === 'github-actions' ? 'GitHub Actions' : 'Vercel cron'}${a.schedule ? ` · ${a.schedule}` : ''}`),
-      )
+    for (const a of sorted.slice(0, 12)) {
+      const kind = KIND_LABELS[a.kind] ?? a.kind
+      const icon =
+        a.status === 'ok' ? c.green('✓') :
+        a.status === 'failing' ? c.red('✗') :
+        a.status === 'disabled' || a.status === 'stale' ? c.yellow('⚠') :
+        c.dim('⟳')
+      const note = a.status && a.status !== 'unknown'
+        ? (a.status === 'ok' ? c.dim(a.note ?? 'ok') : c.yellow(a.note ?? a.status))
+        : c.dim(`${kind}${a.schedule ? ` · ${a.schedule}` : ''}`)
+      push(`  ${icon} ${cloudName(a)}  ${note}`)
     }
-    if (r.cloud.length > 10) push(c.dim(`  … and ${r.cloud.length - 10} more`))
-    push(c.dim("  These run in the cloud — leash can't tell from this machine if they're"))
-    push(c.dim('  actually alive. Watching them is what leash cloud is for.'))
+    if (r.cloud.length > 12) push(c.dim(`  … and ${r.cloud.length - 12} more`))
+    if (checked === 0) {
+      push(c.dim('  Health unknown from here. leash can check these live with your own'))
+      push(c.dim('  platform logins (read-only, direct to each platform): ') + c.cyan('npx getleash link'))
+    } else if (checked < r.cloud.length) {
+      push(c.dim(`  ${r.cloud.length - checked} not checked — platform not linked or repo not pushed.`))
+      push(c.dim('  Connect more platforms: ') + c.cyan('npx getleash link') + c.dim(' · skip all checks: --offline'))
+    }
   }
 
   // ── Fixes ────────────────────────────────────────────────────────
@@ -277,8 +328,13 @@ export function renderReport(r: FleetReport): string {
     }
   }
   push()
-  push(c.dim('  This machine only — cloud agents (GitHub Actions, Vercel) are invisible'))
-  push(c.dim('  from here. Share your fleet card: ') + c.cyan('npx getleash --share'))
+  if (r.cloud.some((a) => a.status && a.status !== 'unknown')) {
+    push(c.dim('  Cloud agents checked live with your own platform logins (') + c.cyan('npx getleash link') + c.dim(').'))
+    push(c.dim('  Share your fleet card: ') + c.cyan('npx getleash --share'))
+  } else {
+    push(c.dim('  This machine only — cloud agents (GitHub Actions, Vercel…) are invisible'))
+    push(c.dim('  from here until you connect them: ') + c.cyan('npx getleash link'))
+  }
   push()
   return L.join('\n')
 }

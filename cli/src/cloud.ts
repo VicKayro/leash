@@ -6,7 +6,7 @@ import { scanClaude } from './scan/claude'
 import { scanLaunchd } from './scan/launchd'
 import { scanCron } from './scan/cron'
 import { scanSystemd } from './scan/systemd'
-import { scanCloud } from './scan/cloud'
+import { collectCloud } from './scan/cloud'
 import type { FleetReport, ScheduledAgent } from './types'
 
 export const CLOUD_URL = process.env.LEASH_CLOUD_URL || 'https://getleash.vercel.app'
@@ -108,8 +108,15 @@ export function buildSnapshot(report: FleetReport): any {
     scheduled: { total: report.scheduled.filter((a) => !a.disabled).length, issues },
     cloudAgents: {
       total: report.cloud.length,
-      githubActions: report.cloud.filter((c) => c.kind === 'github-actions').length,
-      vercelCrons: report.cloud.filter((c) => c.kind === 'vercel-cron').length,
+      checked: report.cloud.filter((c) => c.status && c.status !== 'unknown').length,
+      byKind: report.cloud.reduce<Record<string, number>>((acc, c) => {
+        acc[c.kind] = (acc[c.kind] ?? 0) + 1
+        return acc
+      }, {}),
+      issues: report.cloud
+        .filter((c) => c.status === 'failing' || c.status === 'disabled' || c.status === 'stale')
+        .slice(0, 20)
+        .map((c) => ({ repo: c.repo, name: c.name, kind: c.kind, status: c.status, note: c.note ?? null })),
     },
     guard,
   }
@@ -124,12 +131,13 @@ async function fullScan(windowDays = 30): Promise<FleetReport> {
     Promise.resolve().then(scanCron),
     Promise.resolve().then(scanSystemd),
   ])
+  const cloud = await collectCloud(claude.projects.map((p) => p.cwd))
   return {
     generatedAt: new Date().toISOString(),
     windowDays,
     claude,
     scheduled: [...launchd, ...systemd, ...cron],
-    cloud: scanCloud(claude.projects.map((p) => p.cwd)),
+    cloud,
   }
 }
 

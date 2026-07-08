@@ -80,6 +80,8 @@ function machineCard(m) {
   const stale = Date.now() - new Date(m.receivedAt).getTime() > 48 * 3600e3
   const issues = (sched.issues || []).map((i) =>
     `<li class="${i.problem === 'zombie' || i.problem === 'failing' ? 'bad' : 'warn'}">✗ ${esc(i.label)} <span style="color:var(--dim)">(${esc(i.source)}, ${esc(i.problem)})</span></li>`).join('')
+  const cloudIssues = ((s.cloudAgents && s.cloudAgents.issues) || []).map((i) =>
+    `<li class="${i.status === 'failing' ? 'bad' : 'warn'}">☁ ${esc(i.repo)}/${esc(i.name)} <span style="color:var(--dim)">(${esc(i.status)}${i.note ? ' — ' + esc(i.note) : ''})</span></li>`).join('')
   const loops = (s.loops || []).map((l) =>
     `<li class="warn">↻ ${esc(l.tool)} ×${l.count} in ${esc(l.project)} <span style="color:var(--dim)">(${esc(l.date)}, ~${usd(l.estCostUSD)})</span></li>`).join('')
   const maxCost = Math.max(1e-9, ...(s.topProjects || []).map((p) => p.costUSD))
@@ -99,10 +101,10 @@ function machineCard(m) {
       <span><b>${t.sessions ?? 0}</b> sessions</span>
       <span><b>${ins.nightSessions ?? 0}</b> while sleeping</span>
       <span><b>${sched.total}</b> scheduled agents</span>
-      <span><b>${(s.cloudAgents && s.cloudAgents.total) || 0}</b> cloud agents</span>
+      <span><b>${(s.cloudAgents && s.cloudAgents.total) || 0}</b> cloud agents${s.cloudAgents && s.cloudAgents.checked ? ` <span style="color:var(--dim)">(${s.cloudAgents.checked} checked live)</span>` : ''}</span>
       <span>${guard}</span>
     </div>
-    ${issues || loops ? `<h3>Needs attention</h3><ul>${issues}${loops}</ul>` : '<h3 class="good" style="color:var(--green)">All agents healthy</h3>'}
+    ${issues || cloudIssues || loops ? `<h3>Needs attention</h3><ul>${issues}${cloudIssues}${loops}</ul>` : '<h3 class="good" style="color:var(--green)">All agents healthy</h3>'}
     ${projects ? `<h3>Top projects</h3><ul>${projects}</ul>` : ''}
   </div>`
 }
@@ -131,7 +133,7 @@ async function load() {
   }
   const cost = ms.reduce((a, m) => a + ((m.snapshot?.totals?.costUSD) || 0), 0)
   const sessions = ms.reduce((a, m) => a + ((m.snapshot?.totals?.sessions) || 0), 0)
-  const alerts = ms.reduce((a, m) => a + ((m.snapshot?.scheduled?.issues?.length) || 0) + ((m.snapshot?.loops?.length) || 0), 0)
+  const alerts = ms.reduce((a, m) => a + ((m.snapshot?.scheduled?.issues?.length) || 0) + ((m.snapshot?.cloudAgents?.issues?.length) || 0) + ((m.snapshot?.loops?.length) || 0), 0)
   $('sub').textContent = 'Your agent fleet, across machines. Data refreshes on every push.'
   $('totals').hidden = false
   $('totals').innerHTML = [

@@ -25,6 +25,7 @@ function makeEnv(cloudUrl) {
       LEASH_DIR: leashDir,
       CLAUDE_CONFIG_DIR: claudeDir,
       LEASH_CLOUD_URL: cloudUrl ?? 'http://127.0.0.1:9', // unreachable: push fails, fail-open
+      LEASH_OFFLINE: '1', // never hit platform APIs from tests (push is separate)
     },
   }
 }
@@ -104,4 +105,17 @@ test('push sends a metrics-only snapshot — no filesystem paths, no transcript 
   } finally {
     server.close()
   }
+})
+
+test('link with no args lists the five providers', () => {
+  const t = makeEnv()
+  const out = run(t.env, 'link')
+  for (const p of ['GitHub Actions', 'Vercel', 'Render', 'Railway', 'Cloudflare Workers']) {
+    assert.ok(out.includes(p), p + ' listed')
+  }
+})
+
+test('link rejects an unknown provider', () => {
+  const t = makeEnv()
+  assert.throws(() => run(t.env, 'link', 'heroku', 'tok_x'), /unknown provider/)
 })
