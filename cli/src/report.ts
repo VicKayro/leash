@@ -1,3 +1,6 @@
+import * as fs from 'node:fs'
+import * as path from 'node:path'
+import * as os from 'node:os'
 import type { FleetReport, ScheduledAgent } from './types'
 
 const useColor = process.stdout.isTTY && !process.env.NO_COLOR
@@ -237,16 +240,35 @@ export function renderReport(r: FleetReport): string {
     push('  ' + c.green('Nothing to fix. ') + c.dim('Enjoy it while it lasts.'))
   }
 
-  // ── Scope + CTA ──────────────────────────────────────────────────
+  // ── One next step, chosen from THEIR data — not a menu ──────────
+  let guardOn = false
+  try {
+    const leashDir = process.env.LEASH_DIR || path.join(os.homedir(), '.leash')
+    const cfg = JSON.parse(fs.readFileSync(path.join(leashDir, 'guard.json'), 'utf8'))
+    guardOn = !!(cfg.dailyUSD || cfg.hourlyUSD)
+  } catch {}
+  const liveNow = r.claude.projects.some((p) => Date.now() - p.lastActivity < 5 * 60_000)
+
   push()
-  push(
-    c.dim('  Heads-up: leash only sees THIS machine. Agents running in the cloud'),
-  )
-  push(
-    c.dim('  (GitHub Actions, Vercel crons, servers) are invisible here — watching'),
-  )
-  push(c.dim('  those too is what leash cloud is for: ') + c.cyan('npx getleash connect'))
-  push(c.dim('  Share your fleet card: ') + c.cyan('npx getleash --share'))
+  if (!guardOn && r.claude.totalCostUSD > 5) {
+    // Personalized caps: ~2x their average day, hourly ≈ a quarter of that.
+    const daily = Math.max(5, Math.ceil(((r.claude.totalCostUSD / r.windowDays) * 2) / 5) * 5)
+    const hourly = Math.max(5, Math.ceil(daily / 4 / 5) * 5)
+    const reason = r.claude.loops.length
+      ? `You had ${r.claude.loops.length} loop${r.claude.loops.length > 1 ? 's' : ''} this month and no spending cap.`
+      : `You spend ~${usd(r.claude.totalCostUSD / r.windowDays)}/day with no cap. Claude Code has none built in.`
+    push('  ' + c.bold('Next: ') + reason + ' Based on your usage:')
+    push('  ' + c.cyan(`npx getleash guard --daily ${daily} --hourly ${hourly}`))
+  } else if (liveNow) {
+    push('  ' + c.bold('Next: ') + `an agent is running right now — watch its cost tick live:`)
+    push('  ' + c.cyan('npx getleash watch'))
+  } else {
+    push('  ' + c.bold('Next: ') + 'be told when a cron dies or a loop starts, wherever it runs:')
+    push('  ' + c.cyan('npx getleash connect'))
+  }
+  push()
+  push(c.dim('  This machine only — cloud agents (GitHub Actions, Vercel) are invisible'))
+  push(c.dim('  from here. Share your fleet card: ') + c.cyan('npx getleash --share'))
   push()
   return L.join('\n')
 }
