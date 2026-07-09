@@ -7,7 +7,7 @@ import { linkCommand } from './link'
 import { renderReport, renderShareCard } from './report'
 import { guardCommand } from './guard'
 import { watchCommand } from './watch'
-import { connectCommand, pushCommand, pushReport, readCloudConfig } from './cloud'
+import { connectCommand, pushCommand, pushReport, readCloudConfig, watchdogCommand } from './cloud'
 import type { FleetReport } from './types'
 
 const HELP = `
@@ -26,11 +26,16 @@ Cloud platforms (GitHub Actions, Vercel, Render, Railway, Cloudflare):
   (GitHub and Vercel auto-connect through your local gh / vercel logins.
    Read-only, tokens go only to their own platform. Skip all: --offline)
 
-leash cloud (free beta — fleet dashboard across machines):
+leash cloud (free — fleet dashboard across machines):
   npx getleash connect    get your private fleet URL, auto-push on session end
   npx getleash push       push a fresh snapshot now
   npx getleash connect --fleet <token>   add this machine to an existing fleet
   npx getleash connect --off             disconnect
+
+🐕 Watchdog (the one paid thing — free during the beta):
+  npx getleash watchdog --discord <webhook-url>   bark on Discord the moment
+                                                  an agent dies, loops or fails
+  npx getleash watchdog            status · --off  disarm
 
 Budget guard (hard spend caps for Claude Code — it has no native ones):
   npx getleash guard --daily 25    block tool calls past $25/day
@@ -55,6 +60,10 @@ async function main() {
   }
   if (args[0] === 'link') {
     await linkCommand(args.slice(1))
+    return
+  }
+  if (args[0] === 'watchdog') {
+    await watchdogCommand(args.slice(1))
     return
   }
   if (args[0] === 'guard') {

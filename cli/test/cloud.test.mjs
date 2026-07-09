@@ -120,3 +120,43 @@ test('link rejects an unknown provider', () => {
   const t = makeEnv()
   assert.throws(() => run(t.env, 'link', 'heroku', 'tok_x'), /unknown provider/)
 })
+
+test('watchdog: arm, status flag, disarm — against a mock cloud', async () => {
+  const calls = []
+  const server = createServer((req, res) => {
+    let body = ''
+    req.on('data', (c) => (body += c))
+    req.on('end', () => {
+      calls.push({ method: req.method, url: req.url, body: body ? JSON.parse(body) : null })
+      res.setHeader('Content-Type', 'application/json')
+      res.end('{"ok":true,"armed":true}')
+    })
+  })
+  await new Promise((r) => server.listen(0, '127.0.0.1', r))
+  const url = 'http://127.0.0.1:' + server.address().port
+  const t = makeEnv(url)
+  const x = promisify(execFile)
+  try {
+    await x('node', [cli, 'connect', '--no-hook'], { encoding: 'utf8', env: t.env })
+    const webhook = 'https://discord.com/api/webhooks/123456/abc-DEF_ghi'
+    const { stdout } = await x('node', [cli, 'watchdog', '--discord', webhook], { encoding: 'utf8', env: t.env })
+    assert.match(stdout, /Watchdog is ON/)
+    const armCall = calls.find((c) => c.url === '/api/alerts' && c.method === 'POST')
+    assert.ok(armCall, 'POST /api/alerts called')
+    assert.equal(armCall.body.discord, webhook)
+    assert.match(armCall.body.token, /^flt_/)
+    const config = JSON.parse(fs.readFileSync(path.join(t.leashDir, 'cloud.json'), 'utf8'))
+    assert.equal(config.watchdog, true, 'local watchdog flag set')
+    await x('node', [cli, 'watchdog', '--off'], { encoding: 'utf8', env: t.env })
+    assert.ok(calls.some((c) => c.url === '/api/alerts' && c.method === 'DELETE'), 'DELETE called')
+    const config2 = JSON.parse(fs.readFileSync(path.join(t.leashDir, 'cloud.json'), 'utf8'))
+    assert.ok(!config2.watchdog, 'local flag cleared')
+  } finally {
+    server.close()
+  }
+})
+
+test('watchdog rejects a non-discord webhook URL', () => {
+  const t = makeEnv()
+  assert.throws(() => run(t.env, 'watchdog', '--discord', 'https://example.com/hook'), /does not look like a Discord webhook/)
+})

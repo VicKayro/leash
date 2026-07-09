@@ -9,9 +9,10 @@ export default async function handler(req, res) {
     return
   }
   const { blobs } = await list({ prefix: `fleets/${token}/`, limit: 50 })
+  const watchdog = blobs.some((b) => b.pathname.endsWith('/_alerts.json'))
   const machines = (
     await Promise.all(
-      blobs.map(async (b) => {
+      blobs.filter((b) => !b.pathname.split('/').pop().startsWith('_')).map(async (b) => {
         try {
           const r = await fetch(b.url, { cache: 'no-store' })
           return r.ok ? await r.json() : null
@@ -23,5 +24,5 @@ export default async function handler(req, res) {
   ).filter(Boolean)
   machines.sort((a, b) => String(b.receivedAt).localeCompare(String(a.receivedAt)))
   res.setHeader('Cache-Control', 'no-store')
-  res.status(200).json({ machines })
+  res.status(200).json({ machines, watchdog })
 }

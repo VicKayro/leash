@@ -254,13 +254,16 @@ function fleetHTML(A) {
   </section>`
 }
 
-function attnHTML(A) {
-  if (!A.issues.length) return `<section><h2>Needs attention</h2><div class="allgood">✓ Nothing. Every agent leash can see is healthy — enjoy it while it lasts.</div></section>`
+function attnHTML(A, watchdog) {
+  const wdCta = watchdog
+    ? ''
+    : `<div class="fixhint">🐕 Don't wait to look — arm the watchdog and get pinged on Discord the moment this happens (free during beta): <code>npx getleash watchdog --discord &lt;webhook-url&gt;</code></div>`
+  if (!A.issues.length) return `<section><h2>Needs attention</h2><div class="allgood">✓ Nothing. Every agent leash can see is healthy — enjoy it while it lasts.</div>${wdCta}</section>`
   const rows = A.issues.sort((a, b) => (a.sev === 'bad' ? 0 : 1) - (b.sev === 'bad' ? 0 : 1)).map((i) =>
     `<div class="row ${i.sev}"><span class="icon">${i.sev === 'bad' ? '✗' : '⚠'}</span><span class="name">${esc(i.name)}</span><span class="note">${esc(i.note)}</span><span class="src">${esc(i.src)}</span></div>`).join('')
   const hasLocal = A.issues.some((i) => i.local)
   return `<section><h2>Needs attention <span class="sub">· ${A.issues.length}</span></h2><div class="attn">${rows}
-    ${hasLocal ? `<div class="fixhint">→ run <code>npx getleash</code> on that machine: the report gives the exact copy-paste fix for each one.</div>` : ''}</div></section>`
+    ${hasLocal ? `<div class="fixhint">→ run <code>npx getleash</code> on that machine: the report gives the exact copy-paste fix for each one.</div>` : ''}${wdCta}</div></section>`
 }
 
 function factsHTML(A, ms) {
@@ -343,8 +346,8 @@ async function load() {
     return
   }
   const A = aggregate(ms)
-  document.getElementById('stamp').textContent = 'updated ' + ago(ms[0].receivedAt)
-  $app.innerHTML = heroHTML(A, ms) + attnHTML(A) + nightsHTML(A, ms) + pulseHTML(A) + fleetHTML(A) + factsHTML(A, ms) + machinesHTML(ms)
+  document.getElementById('stamp').textContent = (data.watchdog ? '🐕 watchdog armed · ' : '') + 'updated ' + ago(ms[0].receivedAt)
+  $app.innerHTML = heroHTML(A, ms) + attnHTML(A, data.watchdog) + nightsHTML(A, ms) + pulseHTML(A) + fleetHTML(A) + factsHTML(A, ms) + machinesHTML(ms)
   document.title = `leash — ${usd(A.cost, 0)} / ${A.windowDays}d`
   countUp()
   wireTips()

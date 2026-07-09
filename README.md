@@ -142,7 +142,27 @@ No signup, no email. You get a private URL like `getleash.vercel.app/f/flt_…` 
 
 - Add another machine to the same fleet: `npx -y getleash connect --fleet <your-token>`
 - The URL is a capability: anyone who has it can view your fleet metrics. Keep it private.
-- Coming next: email/Discord alerts when a cron dies or a loop starts, budget guard synced across machines. **[Waitlist for alerts →](https://github.com/VicKayro/leash/issues/1)** — a 👍 is enough.
+
+## 🐕 Watchdog — the one paid thing (free during the beta)
+
+A dashboard has to be looked at. The watchdog barks. The moment a push shows a **new** problem — a cron gone zombie, a GitHub Actions workflow failing, a runaway loop at 3am — it pings your Discord channel with what broke and a link to the fleet:
+
+```
+npx getleash watchdog --discord <your-webhook-url>
+```
+
+(Discord → channel settings → Integrations → Webhooks → New Webhook. ~30 seconds.)
+
+`getleash watchdog` shows status, `--off` disarms. More channels (email, Slack) are next: **[tell us which one you need →](https://github.com/VicKayro/leash/issues/1)**
+
+## Pricing
+
+| | |
+|---|---|
+| **Everything you can see** — report, live monitor, budget guard, fleet dashboard, night replay, platform health checks | **Free, forever** |
+| **🐕 Watchdog** — alerts that come to you | **Free during the beta**, then $15/mo. You'll never be charged without explicitly opting in. |
+
+The philosophy: the visibility is free, the vigilance is paid.
 
 ## Privacy
 

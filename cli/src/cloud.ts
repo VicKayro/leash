@@ -200,6 +200,114 @@ export async function pushCommand(args: string[]): Promise<void> {
   }
 }
 
+// Watchdog — the one paid thing (free during the beta): the fleet barks at
+// you on Discord the moment something breaks, instead of waiting to be looked at.
+export async function watchdogCommand(args: string[], prebuilt?: FleetReport): Promise<void> {
+  let config = readCloudConfig()
+
+  if (args.includes('--off')) {
+    if (!config) {
+      console.log('\nWatchdog is not armed (this machine is not even connected).\n')
+      return
+    }
+    try {
+      const res = await fetch(config.url + '/api/alerts', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: config.token }),
+        signal: AbortSignal.timeout(10_000),
+      })
+      if (!res.ok) throw new Error(`cloud replied ${res.status}`)
+    } catch (err: any) {
+      console.error('leash: could not disarm —', err?.message ?? err)
+      process.exitCode = 1
+      return
+    }
+    try {
+      const raw = JSON.parse(fs.readFileSync(CLOUD_CONFIG(), 'utf8'))
+      delete raw.watchdog
+      fs.writeFileSync(CLOUD_CONFIG(), JSON.stringify(raw, null, 2) + '\n')
+    } catch {}
+    console.log('\nWatchdog disarmed. The dashboard stays live; nobody barks anymore.\n')
+    return
+  }
+
+  const dIdx = args.indexOf('--discord')
+  const webhook = dIdx >= 0 ? String(args[dIdx + 1] || '') : null
+
+  if (webhook === null) {
+    // status
+    if (!config) {
+      console.log(`
+🐕 Watchdog — get pinged the moment an agent dies, loops, or fails.
+Free during the beta ($15/mo after). Two steps, ~30 seconds:
+
+  1. Discord → your server → channel settings → Integrations → Webhooks → New
+  2. npx getleash watchdog --discord <webhook-url>
+`)
+      return
+    }
+    try {
+      const res = await fetch(`${config.url}/api/alerts?token=${config.token}`, { signal: AbortSignal.timeout(10_000) })
+      const status = await res.json()
+      console.log(
+        status.armed
+          ? `\n🐕 Watchdog is ARMED (${status.channel}). Break something tonight and you'll know by morning.\n\n  Disarm: getleash watchdog --off\n`
+          : `\n🐕 Watchdog is OFF. Arm it — free during the beta:\n\n  1. Discord → channel settings → Integrations → Webhooks → New\n  2. npx getleash watchdog --discord <webhook-url>\n`,
+      )
+    } catch (err: any) {
+      console.error('leash: could not reach the cloud —', err?.message ?? err)
+      process.exitCode = 1
+    }
+    return
+  }
+
+  if (!/^https:\/\/(?:discord\.com|discordapp\.com)\/api\/webhooks\/\d+\/[\w-]+$/.test(webhook)) {
+    console.error('leash: that does not look like a Discord webhook URL (https://discord.com/api/webhooks/…)')
+    process.exitCode = 1
+    return
+  }
+  if (!config) {
+    console.log('\nNot connected yet — connecting this machine first.')
+    await connectCommand([], prebuilt)
+    config = readCloudConfig()
+    if (!config) return
+  }
+  process.stdout.write('Arming the watchdog (a test ping lands in your channel)… ')
+  try {
+    const res = await fetch(config.url + '/api/alerts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: config.token, discord: webhook }),
+      signal: AbortSignal.timeout(15_000),
+    })
+    const out = await res.json()
+    if (!res.ok) throw new Error(out?.error || `cloud replied ${res.status}`)
+  } catch (err: any) {
+    console.log('failed.')
+    console.error('leash:', err?.message ?? err)
+    process.exitCode = 1
+    return
+  }
+  console.log('armed.')
+  try {
+    const raw = JSON.parse(fs.readFileSync(CLOUD_CONFIG(), 'utf8'))
+    raw.watchdog = true
+    fs.writeFileSync(CLOUD_CONFIG(), JSON.stringify(raw, null, 2) + '\n')
+  } catch {}
+  console.log(`
+🐕 Watchdog is ON — free during the beta ($15/mo after, you'll never be
+charged without saying yes). From now on, the moment a push shows a NEW
+problem — cron gone zombie, workflow failing, runaway loop — it barks in
+your Discord channel with a link to the fleet:
+
+  ${config.url}/f/${config.token}
+
+  Status:  getleash watchdog
+  Disarm:  getleash watchdog --off
+`)
+}
+
 function readSettings(): any {
   try {
     return JSON.parse(fs.readFileSync(SETTINGS(), 'utf8'))

@@ -319,7 +319,10 @@ export function renderReport(r: FleetReport): string {
       const leashDir = process.env.LEASH_DIR || path.join(os.homedir(), '.leash')
       fleet = JSON.parse(fs.readFileSync(path.join(leashDir, 'cloud.json'), 'utf8'))
     } catch {}
-    if (fleet?.token) {
+    if (fleet?.token && !fleet.watchdog && actions.length > 0) {
+      push('  ' + c.bold('Next: ') + `this report found ${actions.length} problem${actions.length > 1 ? 's' : ''} — be pinged when it happens, not when you look (free in beta):`)
+      push('  ' + c.cyan('npx getleash watchdog --discord <your-webhook-url>'))
+    } else if (fleet?.token) {
       push('  ' + c.bold('Next: ') + 'fresh data just pushed — your fleet dashboard:')
       push('  ' + c.cyan(`${fleet.url || 'https://getleash.vercel.app'}/f/${fleet.token}`))
     } else {
