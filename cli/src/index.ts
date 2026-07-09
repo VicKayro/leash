@@ -99,7 +99,31 @@ async function main() {
 
   // Connected machines refresh their dashboard on every run. Silent, fail-open.
   const cloudConfig = readCloudConfig()
-  if (cloudConfig) await pushReport(report, cloudConfig).catch(() => {})
+  if (cloudConfig) {
+    await pushReport(report, cloudConfig).catch(() => {})
+    return
+  }
+
+  // One command, not four: offer the dashboard right here. A keypress is the
+  // consent line — data only leaves the machine if the user says so.
+  const interactive =
+    process.stdin.isTTY && process.stdout.isTTY &&
+    !args.includes('--json') && !args.includes('--share') && !args.includes('--no-cloud')
+  if (interactive) {
+    const readline = await import('node:readline')
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
+    const answer = await new Promise<string>((resolve) => {
+      rl.question(
+        '  ↵ Enter to put this on a free live dashboard (no signup, metrics only, off anytime) · n to skip: ',
+        resolve,
+      )
+      rl.on('close', () => resolve('n'))
+    })
+    rl.close()
+    if (answer.trim() === '' || /^y/i.test(answer.trim())) {
+      await connectCommand([], report) // reuse the scan we just did
+    }
+  }
 }
 
 main().catch((err) => {

@@ -132,7 +132,7 @@ Tokens are stored in `~/.leash/providers.json` (chmod 600), sent **only to their
 
 ## leash cloud — your fleet on one page (free beta)
 
-The scan is a snapshot of one machine. The fear is continuous, and fleets span laptops, servers, VMs:
+The scan is a snapshot of one machine. The fear is continuous, and fleets span laptops, servers, VMs. One command does everything — `npx getleash` offers the dashboard right after the report (a keypress is the consent line), or connect explicitly:
 
 ```
 npx -y getleash connect

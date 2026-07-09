@@ -239,7 +239,7 @@ function installPushHook(): void {
   writeSettings(settings)
 }
 
-export async function connectCommand(args: string[]): Promise<void> {
+export async function connectCommand(args: string[], prebuilt?: FleetReport): Promise<void> {
   if (args.includes('--off')) {
     const settings = readSettings()
     removePushHook(settings)
@@ -267,7 +267,7 @@ export async function connectCommand(args: string[]): Promise<void> {
 
   process.stdout.write('\nScanning this machine… ')
   try {
-    await pushReport(await fullScan(), config)
+    await pushReport(prebuilt ?? (await fullScan()), config)
     console.log('pushed.')
   } catch (err: any) {
     console.log(`push failed (${err?.message ?? err}) — will retry on next session end.`)

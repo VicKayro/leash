@@ -109,14 +109,30 @@ npx getleash --days N         window in days (default 30)
 npx getleash guard --daily N --hourly M  hard spend caps (see above)
 npx getleash guard --status   cap + today's spend
 npx getleash guard --off      remove the guard
+npx getleash link             connect the platforms where your agents run
 npx getleash connect          free fleet dashboard in the cloud (see below)
 npx getleash push             refresh your cloud dashboard now
 npx getleash connect --off    disconnect from the cloud
 ```
 
+## Your agents don't just live on your laptop
+
+Agents also run on GitHub Actions, Vercel, Render, Railway, Cloudflare Workers — and those die silently too. leash checks them **live**, with credentials that are already on your machine:
+
+- **GitHub Actions** — auto-detected via your `gh` login (or `GITHUB_TOKEN`): last run status, disabled workflows, schedules that silently stopped firing
+- **Vercel** — auto-detected via your `vercel` login (or `VERCEL_TOKEN`): every cron across all your projects, enabled/disabled, failed deployments
+- **Render / Railway / Cloudflare Workers** — paste a read-only token once:
+
+```
+npx getleash link                      # see what's connected
+npx getleash link render <api-key>     # ~10 seconds per platform
+```
+
+Tokens are stored in `~/.leash/providers.json` (chmod 600), sent **only to their own platform's API**, read-only, never to leash. Skip all remote checks with `--offline`.
+
 ## leash cloud — your fleet on one page (free beta)
 
-The scan is a snapshot of one machine. The fear is continuous, and fleets span laptops, servers, VMs:
+The scan is a snapshot of one machine. The fear is continuous, and fleets span laptops, servers, VMs. One command does everything — `npx getleash` offers the dashboard right after the report (a keypress is the consent line), or connect explicitly:
 
 ```
 npx -y getleash connect
