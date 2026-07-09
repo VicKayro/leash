@@ -1,179 +1,198 @@
+<div align="center">
+
 # 🐕 leash
 
-**See what your agents did last night — and cap what they can spend.** One command shows you every AI agent and scheduled job on your machine: what they cost, which ones are dead, which ones went crazy. Another gives Claude Code the hard daily spend limit it doesn't have. 10 seconds, no signup, nothing leaves your computer.
+### See what your AI agents did last night.
+
+One command. No signup. Costs, runaway loops, dead crons, failing workflows: your whole agent fleet, across every machine and cloud platform it runs on.
+
+[![npm](https://img.shields.io/npm/v/getleash?color=4ade80&label=npm)](https://www.npmjs.com/package/getleash)
+[![downloads](https://img.shields.io/npm/dm/getleash?color=4ade80)](https://www.npmjs.com/package/getleash)
+[![CI](https://github.com/VicKayro/leash/actions/workflows/ci.yml/badge.svg)](https://github.com/VicKayro/leash/actions/workflows/ci.yml)
+[![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![node](https://img.shields.io/badge/node-%E2%89%A518-blue)](cli/package.json)
 
 ```
-npx getleash
+npx -y getleash
 ```
 
-```
-🐕 leash · your agent fleet on this machine · last 30 days
+[**Live demo fleet →**](https://getleash.vercel.app/f/flt_cafebabe00decafbad00face) · [Quick start](#quick-start) · [Dashboard](#the-fleet-dashboard) · [Watchdog](#-watchdog) · [Privacy](#privacy) · [FAQ](#faq)
 
-  The short version
-  Your agents did $1,599 worth of AI work across 82 sessions.
-  (That's the pay-as-you-go API value. On a subscription like Claude
-  Pro/Max you paid a flat fee — this is what your usage is worth.)
-  9 agents live here: 8 look fine, 1 needs you (fixes below).
+</div>
 
-  Your scheduled agents · 7 active · 6 turned off on purpose
-  ✓ com.kayro.demand-radar          every 30min
-  ⚠ com.victorgalli.daily-watch     last run failed
-  💀 com.old.autopilot               zombie — script is gone
+---
 
-  To fix (1) — copy-paste the command under each one
+<p align="center"><img src="https://raw.githubusercontent.com/VicKayro/leash/main/docs/img/report.png" width="780" alt="leash terminal report: fleet value, scheduled agents health, cloud agents checked live, copy-paste fixes"></p>
 
-  1. com.victorgalli.daily-watch failed its last run
-     It's still scheduled (monthly) but the last run crashed (exit code 1). See why:
-     tail -20 "~/Library/Logs/daily-watch.err.log"
-```
+## Why
 
-Every warning comes with the exact command to fix it. Copy, paste, done.
+You run agents now. Claude Code sessions that work for hours, launchd and cron jobs, GitHub Actions on a schedule, Vercel crons. They ship while you sleep. They also **die silently, loop on the same tool call at 3am, and burn API budget** while you sleep. Nothing watches them.
 
-## Who is this for?
+leash is the missing pane of glass: what your agents did, what it was worth, what broke, and the exact command to fix it. Local-first, metrics-only, one `npx` away.
 
-Anyone who has automated things with AI and lost track of them:
-
-- You use **Claude Code** and wonder where the money goes
-- You have **cron jobs or scheduled scripts** (agents, backups, reports) and no idea if they still run
-- You once found out an automation had been **silently broken for weeks**
-
-True story: the first ever run of leash was on its creator's machine. It found 3 daily automations that had **never run once** (a morning briefing, a backup, an alerting system) and one script crashed since July 1st. All fixed in 5 minutes with the commands leash printed.
-
-## Never used a terminal? Start here
-
-1. **Open the Terminal app.** On a Mac: press `⌘ + space`, type `terminal`, press Enter. A window with text appears — that's it.
-2. **Paste this and press Enter:**
-   ```
-   npx getleash
-   ```
-3. **If it says `command not found: npx`**: you need Node.js first (free, 2 minutes). Go to [nodejs.org](https://nodejs.org), click the big green button, install, close and reopen Terminal, try again.
-
-That's all. No account, no configuration, and the scan only *reads* — it changes nothing on your machine.
-
-## How to read your report
-
-| Symbol | Meaning |
-|---|---|
-| ✓ | This agent looks healthy |
-| ⚠ | Something's wrong (not running, crashed, or suspiciously silent) — see the "things to fix" list below it |
-| 💀 | Zombie: scheduled job pointing to a script that no longer exists |
-| ○ | Disabled on purpose, nothing to do |
-
-The dollar amount is what your Claude Code usage would cost at API prices over the last 30 days (estimated: per-model rates, cache-aware, deduplicated the same way as ccusage). If you're on a subscription plan, it's what your usage is *worth*, not what you paid.
-
-## What it scans
-
-- **Claude Code activity** (`~/.claude/projects`): estimated spend per project, sessions, and **loop detection** — the same tool call repeated 10+ times with identical input is almost never intentional, and it burns real money.
-- **Scheduled jobs**: launchd on macOS, systemd user timers on Linux (beta), crontab everywhere — schedule, loaded state, last exit code, zombies, silent jobs (log untouched for 2x the expected interval). Vendor updaters (Google, Adobe...) are filtered out.
-- **Cloud-scheduled agents defined in your local repos** (GitHub Actions `schedule:` workflows, `vercel.json` crons): listed so your fleet count is honest — leash can't tell from your machine whether those are alive. That's what the cloud version is for.
-
-## `getleash watch` — top, for your agents
-
-A live monitor in your terminal: every Claude Code session currently running on your machine, its cost ticking in real time, the tool it's executing right now, and its burn rate per hour.
+## Quick start
 
 ```
-🐕 leash watch · live agent monitor · guard: $25/day · Ctrl+C to quit
-
-  LIVE · 2 sessions  burning $41.20/hour right now
-  ● myapp/backend · 0b8a68c4    $12.91  ↑$39.73/h   Edit: server.ts      4s ago
-  ● ~ (home) · f3417001          $1.41  ↑$1.50/h    Bash: npm test       12s ago
+npx -y getleash
 ```
 
-Watch your agents work. Catch a loop the moment it starts spinning, not on next month's bill.
+Ten seconds later you have:
 
-## The budget guard: a hard daily spend cap for Claude Code
+- **The value of the work**: pay-as-you-go API value of your last 30 days, per project, with the multiple vs your flat subscription ("9.8× a $200/mo Max")
+- **Every scheduled agent on the machine** (launchd, cron, systemd): zombies pointing at deleted scripts, jobs that stopped writing logs, last runs that crashed
+- **Every cloud agent, checked live**: GitHub Actions and Vercel crons verified with the logins already on your machine (see [platforms](#live-platform-checks))
+- **Runaway loops**: the same tool call repeated 10+ times with identical input, priced
+- **Fixes**: each problem comes with a copy-paste command, not a shrug
+- Press **Enter** at the end and the whole thing becomes a live dashboard (optional, free)
 
-Claude Code has **no native spend limit**. One runaway loop can burn $100 in tokens before you notice. leash gives you a real one, in one command:
+Nothing leaves the machine unless you say so. `--json` for scripts, `--days N` for the window, `--offline` to skip every network call.
+
+## The fleet dashboard
+
+<p align="center"><img src="https://raw.githubusercontent.com/VicKayro/leash/main/docs/img/dashboard.png" width="780" alt="leash cloud dashboard: animated hero with fleet value, needs-attention list, night replay timeline"></p>
+
+**[→ Open the live demo fleet](https://getleash.vercel.app/f/flt_cafebabe00decafbad00face)** (three machines, real layout, curated data)
+
+`npx getleash connect` gives you a private URL. No account, no email: the URL is the key. Every machine you connect with the same fleet token lands on the same page, and a `SessionEnd` hook refreshes it after each Claude Code session.
+
+- **Hero**: what your agents did, in dollars, with the subscription ROI multiple
+- **🌙 While you slept**: a midnight-to-7am timeline per night, each session placed at the hour it actually ran
+- **The pulse**: 30 days of cost, day by day
+- **Your fleet**: one health dot per agent, problems first
+- **Needs attention**: severity, machine, cause, and where to get the fix
+
+## Live platform checks
+
+Agents don't just live on your laptop. leash checks the platforms where they run, with credentials that never leave your machine and never go to leash:
+
+| Platform | Setup | What gets checked |
+|---|---|---|
+| **GitHub Actions** | none: uses your `gh` login or `GITHUB_TOKEN` | last run status, disabled workflows, schedules GitHub silently stopped firing |
+| **Vercel** | none: uses your `vercel` login or `VERCEL_TOKEN` | every cron across all projects and teams, enabled/disabled, failed deployments |
+| **Render** | `getleash link render <api-key>` | cron jobs: suspended, stale, last successful run |
+| **Railway** | `getleash link railway <token>` | scheduled services, latest deployment status |
+| **Cloudflare Workers** | `getleash link cloudflare <api-token>` | workers with cron triggers |
+
+`npx getleash link` shows what's connected. Tokens are validated before saving, stored in `~/.leash/providers.json` (chmod 600), and only ever sent to their own platform's API, read-only.
+
+## The budget guard
+
+Claude Code has **no native spend limit**. leash gives you a hard one, in one command:
 
 ```
 npx getleash guard --daily 25 --hourly 5
 ```
 
-The two caps do different jobs: `--daily` is your overall budget, `--hourly` is the **loop killer** — a runaway loop burning $10 in 8 minutes sails under a daily cap but slams into a burn-rate cap within minutes.
+A `PreToolUse` hook estimates your spend from local transcripts (cached 2 min) and **blocks tool calls** past the cap, with a clear message. The hourly cap is the loop killer: it stops a runaway session in about two minutes, long before the daily cap would. Fail-open by design: if anything breaks, Claude Code works normally. `--status` to check, `--off` to remove, backup of your settings kept at `settings.json.pre-leash`.
 
-That installs a tiny local [PreToolUse hook](https://docs.anthropic.com/en/docs/claude-code/hooks) that checks your estimated spend today (from your local transcripts, cached 2 minutes) and **blocks tool calls** past the cap, with a clear message telling you how to raise or disable it. Notes:
-
-- 100% local, like everything else — no account, no server.
-- **Fail-open by design**: if anything at all goes wrong (broken config, missing files), Claude Code works normally. The guard can only ever block when it positively knows you're over budget.
-- `getleash guard --status` shows the cap and today's spend. `getleash guard --off` removes it cleanly (your original `settings.json` is backed up as `settings.json.pre-leash` the first time).
-- Heads-up: the cap applies to everything on this machine, including the session you're currently in. Start with a comfortable number.
-
-## Commands
+## The live monitor
 
 ```
-npx getleash                  fleet report
-npx getleash watch            live monitor (top for agents)
-npx getleash --share          shareable fleet card (post your damage)
-npx getleash --json           machine-readable output
-npx getleash --days N         window in days (default 30)
-npx getleash guard --daily N --hourly M  hard spend caps (see above)
-npx getleash guard --status   cap + today's spend
-npx getleash guard --off      remove the guard
-npx getleash link             connect the platforms where your agents run
-npx getleash connect          free fleet dashboard in the cloud (see below)
-npx getleash push             refresh your cloud dashboard now
-npx getleash connect --off    disconnect from the cloud
+npx getleash watch
 ```
 
-## Your agents don't just live on your laptop
+`top` for your agents: sessions running right now, cost ticking per session, current tool call, burn rate in $/h. Refreshes every 2 seconds.
 
-Agents also run on GitHub Actions, Vercel, Render, Railway, Cloudflare Workers — and those die silently too. leash checks them **live**, with credentials that are already on your machine:
+## 🐕 Watchdog
 
-- **GitHub Actions** — auto-detected via your `gh` login (or `GITHUB_TOKEN`): last run status, disabled workflows, schedules that silently stopped firing
-- **Vercel** — auto-detected via your `vercel` login (or `VERCEL_TOKEN`): every cron across all your projects, enabled/disabled, failed deployments
-- **Render / Railway / Cloudflare Workers** — paste a read-only token once:
+A dashboard has to be looked at. **The watchdog barks.**
 
-```
-npx getleash link                      # see what's connected
-npx getleash link render <api-key>     # ~10 seconds per platform
-```
-
-Tokens are stored in `~/.leash/providers.json` (chmod 600), sent **only to their own platform's API**, read-only, never to leash. Skip all remote checks with `--offline`.
-
-## leash cloud — your fleet on one page (free beta)
-
-The scan is a snapshot of one machine. The fear is continuous, and fleets span laptops, servers, VMs. One command does everything — `npx getleash` offers the dashboard right after the report (a keypress is the consent line), or connect explicitly:
-
-```
-npx -y getleash connect
-```
-
-No signup, no email. You get a private URL like `getleash.vercel.app/f/flt_…` showing every connected machine: spend, sessions, dead crons, loops, guard status. A `SessionEnd` hook refreshes it after each Claude Code session, and every `npx getleash` run pushes fresh data too.
-
-- Add another machine to the same fleet: `npx -y getleash connect --fleet <your-token>`
-- The URL is a capability: anyone who has it can view your fleet metrics. Keep it private.
-
-## 🐕 Watchdog — the one paid thing (free during the beta)
-
-A dashboard has to be looked at. The watchdog barks. The moment a push shows a **new** problem — a cron gone zombie, a GitHub Actions workflow failing, a runaway loop at 3am — it pings your Discord channel with what broke and a link to the fleet:
+Every push is diffed against the machine's previous one. The moment something **new** breaks (a cron goes zombie, a workflow starts failing, a loop fires at 3am) it pings your Discord channel with what broke and a link to the fleet. Known problems stay quiet: no alert fatigue.
 
 ```
 npx getleash watchdog --discord <your-webhook-url>
 ```
 
-(Discord → channel settings → Integrations → Webhooks → New Webhook. ~30 seconds.)
-
-`getleash watchdog` shows status, `--off` disarms. More channels (email, Slack) are next: **[tell us which one you need →](https://github.com/VicKayro/leash/issues/1)**
+(Discord → channel settings → Integrations → Webhooks → New Webhook. It proves the webhook with a test ping before saving anything.)
 
 ## Pricing
 
 | | |
 |---|---|
-| **Everything you can see** — report, live monitor, budget guard, fleet dashboard, night replay, platform health checks | **Free, forever** |
-| **🐕 Watchdog** — alerts that come to you | **Free during the beta**, then $15/mo. You'll never be charged without explicitly opting in. |
+| **Everything you can see**: report, live monitor, budget guard, fleet dashboard, night replay, platform checks | **Free, forever** |
+| **🐕 Watchdog**: the alerts that come to you | **Free during the beta**, then $15/mo. Never charged without explicitly opting in. |
 
-The philosophy: the visibility is free, the vigilance is paid.
+The philosophy: **the visibility is free, the vigilance is paid.**
+
+## How it works
+
+```mermaid
+flowchart LR
+    subgraph machine["Your machine (local, default)"]
+        T["~/.claude transcripts<br/>(costs, sessions, loops)"] --> CLI
+        S["launchd · cron · systemd"] --> CLI
+        R["local repos<br/>(workflow & cron definitions)"] --> CLI
+        CLI["getleash CLI"]
+    end
+    subgraph platforms["Your platforms (your tokens, read-only)"]
+        GH["GitHub API"]
+        V["Vercel API"]
+        O["Render · Railway · Cloudflare"]
+    end
+    CLI <-->|"health checks"| GH
+    CLI <-->|"health checks"| V
+    CLI <-->|"health checks"| O
+    CLI -->|"opt-in: metrics-only snapshot"| CLOUD["leash cloud<br/>dashboard + watchdog"]
+    CLOUD -->|"barks on NEW problems"| D["Discord"]
+```
+
+- **Cost accuracy**: usage is deduplicated by `message.id + requestId` (retries and resumed sessions would otherwise double-count), priced per model generation, within ~5% of `ccusage`.
+- **Loop detection**: same tool + identical input hash, 10+ times overall or 6+ within ten minutes.
+- **Cloud health**: workflow state plus last run from the platform's own API; "stale" is inferred from the cron expression (GitHub silently stops scheduling inactive repos).
+- **The gate**: the budget guard is a `PreToolUse` hook; exit 2 blocks the call. It cannot be bypassed by permission modes.
 
 ## Privacy
 
-The local scan makes no network calls, no telemetry, no account. `connect` is opt-in and uploads **metrics only** — costs, counts, agent names and health. Never prompts, transcripts, file paths or file contents. `connect --off` removes the hook and the token.
+The local scan makes **zero network calls** (`--offline` guarantees it even with platforms linked). Everything else is opt-in and metrics-only:
 
-## Dev
+| Leaves the machine (only after you connect) | Never leaves, ever |
+|---|---|
+| Costs, session counts, tool-call counts | Prompts and transcript content |
+| Project display names, agent labels | File paths and file contents |
+| Health statuses and schedules | Platform tokens (they go to their own platform only) |
+
+An end-to-end test asserts the snapshot contains no home paths and no absolute paths. The dashboard URL is a capability: treat it like a secret, `connect --off` kills it locally and removes the hook.
+
+## FAQ
+
+<details>
+<summary><b>I've never used a terminal. Can I still use this?</b></summary>
+
+Yes. Open the **Terminal** app (macOS: Cmd+Space, type "Terminal"), paste `npx -y getleash`, press Enter. The report explains itself, and every problem comes with the exact command to copy and paste. Nothing is installed permanently.
+</details>
+
+<details>
+<summary><b>Does it only work with Claude Code?</b></summary>
+
+The cost and session analysis reads Claude Code's local transcripts today. The scheduled-agent scan (launchd, cron, systemd) and the platform checks (GitHub, Vercel, Render, Railway, Cloudflare) watch **any** agent, whatever wrote it. Multi-LLM cost parsing is on the roadmap.
+</details>
+
+<details>
+<summary><b>How accurate are the dollar amounts?</b></summary>
+
+Within about 5% of `ccusage`. Usage is deduplicated by `(message.id, requestId)` so streaming, retries and resumed sessions are counted once, and priced per model generation, including cache-write tiers. On a subscription, the number is what your usage would cost pay-as-you-go: your ROI, not a bill.
+</details>
+
+<details>
+<summary><b>What if someone gets my dashboard URL?</b></summary>
+
+They see metrics: project names, costs, agent health. Never prompts, paths or contents. Rotate by disconnecting (`connect --off`) and reconnecting for a fresh token.
+</details>
+
+<details>
+<summary><b>Why is the package called <code>getleash</code> and not <code>leash</code>?</b></summary>
+
+`leash` on npm is an abandoned MongoDB package from 2012. We asked; the squatters were faster. `npx getleash` it is.
+</details>
+
+## Development
 
 ```
-cd cli && npm install && npm run build && node dist/index.js
+cd cli && npm install && npm test     # build + 21 tests, all offline
 ```
 
-Note: the npm package is `getleash` (the name `leash` is squatted by an abandoned 2022 package — dispute pending). Both `leash` and `getleash` bins are installed.
+TypeScript, esbuild single-file bundle, **zero runtime dependencies**. The cloud is three Vercel functions and a static page over Vercel Blob; its alert engine has its own integration harness (`cloud/test/watchdog-harness.mjs`). See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-MIT
+## License
+
+[MIT](LICENSE). Built in the open, fast: see the [CHANGELOG](CHANGELOG.md) for the day-by-day story.
