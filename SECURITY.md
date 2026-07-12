@@ -4,7 +4,7 @@ leash's promise is stronger than most: the local scan makes zero network calls, 
 
 ## Reporting
 
-Email **victor@kayro.ai** with the details (proof of concept appreciated). You'll get a reply within 48 hours. Please don't open a public issue for anything exploitable.
+Message with the details (proof of concept appreciated). You'll get a reply within 48 hours. Please don't open a public issue for anything exploitable.
 
 ## Scope
 
