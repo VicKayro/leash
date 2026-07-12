@@ -1,6 +1,6 @@
 # Security policy
 
-leash's promise is stronger than most: the local scan makes zero network calls, the cloud is opt-in and metrics-only, platform tokens never transit through leash servers. A hole in any of those claims is a critical bug.
+The local scan makes zero network calls, the cloud is opt-in and metrics-only, platform tokens never transit through leash servers. A hole in any of those claims is a critical bug.
 
 ## Reporting
 
