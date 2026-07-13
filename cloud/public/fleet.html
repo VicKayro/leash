@@ -257,7 +257,7 @@ function fleetHTML(A) {
 function attnHTML(A, watchdog) {
   const wdCta = watchdog
     ? ''
-    : `<div class="fixhint">🐕 Don't wait to look — arm the watchdog and get pinged on Discord the moment this happens (free during beta): <code>npx getleash watchdog --discord &lt;webhook-url&gt;</code></div>`
+    : `<div class="fixhint">🐕 Don't wait to look — arm the watchdog and get pinged on Discord the moment this happens (free): <code>npx getleash watchdog --discord &lt;webhook-url&gt;</code></div>`
   if (!A.issues.length) return `<section><h2>Needs attention</h2><div class="allgood">✓ Nothing. Every agent leash can see is healthy — enjoy it while it lasts.</div>${wdCta}</section>`
   const rows = A.issues.sort((a, b) => (a.sev === 'bad' ? 0 : 1) - (b.sev === 'bad' ? 0 : 1)).map((i) =>
     `<div class="row ${i.sev}"><span class="icon">${i.sev === 'bad' ? '✗' : '⚠'}</span><span class="name">${esc(i.name)}</span><span class="note">${esc(i.note)}</span><span class="src">${esc(i.src)}</span></div>`).join('')

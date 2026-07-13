@@ -2,6 +2,10 @@
 
 All notable changes to leash. Dates are 2026. The pace is the point.
 
+## 0.13.0 — July 13
+
+**Everything is free now, including the Watchdog.** The beta pricing experiment is over: leash is a gift to people who run agents, MIT, no tiers, no future invoice. If it saves your fleet one 3am loop, a GitHub star is the price.
+
 ## 0.12.0 — July 9
 
 **🐕 Watchdog: the one paid thing (free during the beta).**

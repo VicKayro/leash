@@ -320,7 +320,7 @@ export function renderReport(r: FleetReport): string {
       fleet = JSON.parse(fs.readFileSync(path.join(leashDir, 'cloud.json'), 'utf8'))
     } catch {}
     if (fleet?.token && !fleet.watchdog && actions.length > 0) {
-      push('  ' + c.bold('Next: ') + `this report found ${actions.length} problem${actions.length > 1 ? 's' : ''} — be pinged when it happens, not when you look (free in beta):`)
+      push('  ' + c.bold('Next: ') + `this report found ${actions.length} problem${actions.length > 1 ? 's' : ''} — be pinged when it happens, not when you look (free):`)
       push('  ' + c.cyan('npx getleash watchdog --discord <your-webhook-url>'))
     } else if (fleet?.token) {
       push('  ' + c.bold('Next: ') + 'fresh data just pushed — your fleet dashboard:')

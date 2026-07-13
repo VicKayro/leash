@@ -32,7 +32,7 @@ leash cloud (free — fleet dashboard across machines):
   npx getleash connect --fleet <token>   add this machine to an existing fleet
   npx getleash connect --off             disconnect
 
-🐕 Watchdog (the one paid thing — free during the beta):
+🐕 Watchdog (free, like everything else):
   npx getleash watchdog --discord <webhook-url>   bark on Discord the moment
                                                   an agent dies, loops or fails
   npx getleash watchdog            status · --off  disarm

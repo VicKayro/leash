@@ -107,12 +107,7 @@ npx getleash watchdog --discord <your-webhook-url>
 
 ## Pricing
 
-| | |
-|---|---|
-| **Everything you can see**: report, live monitor, budget guard, fleet dashboard, night replay, platform checks | **Free, forever** |
-| **🐕 Watchdog**: the alerts that come to you | **Free during the beta**, then $15/mo. Never charged without explicitly opting in. |
-
-The philosophy: **the visibility is free, the vigilance is paid.**
+There isn't any. Report, live monitor, budget guard, fleet dashboard, night replay, platform checks, watchdog: **all of it is free and open source.** If it saves your fleet one 3am loop, [a star](https://github.com/VicKayro/leash) is the price.
 
 ## How it works
 

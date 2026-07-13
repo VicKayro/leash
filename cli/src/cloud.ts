@@ -200,7 +200,7 @@ export async function pushCommand(args: string[]): Promise<void> {
   }
 }
 
-// Watchdog — the one paid thing (free during the beta): the fleet barks at
+// Watchdog: the fleet barks at
 // you on Discord the moment something breaks, instead of waiting to be looked at.
 export async function watchdogCommand(args: string[], prebuilt?: FleetReport): Promise<void> {
   let config = readCloudConfig()
@@ -240,7 +240,7 @@ export async function watchdogCommand(args: string[], prebuilt?: FleetReport): P
     if (!config) {
       console.log(`
 🐕 Watchdog — get pinged the moment an agent dies, loops, or fails.
-Free during the beta ($15/mo after). Two steps, ~30 seconds:
+Free, like everything else. Two steps, ~30 seconds:
 
   1. Discord → your server → channel settings → Integrations → Webhooks → New
   2. npx getleash watchdog --discord <webhook-url>
@@ -253,7 +253,7 @@ Free during the beta ($15/mo after). Two steps, ~30 seconds:
       console.log(
         status.armed
           ? `\n🐕 Watchdog is ARMED (${status.channel}). Break something tonight and you'll know by morning.\n\n  Disarm: getleash watchdog --off\n`
-          : `\n🐕 Watchdog is OFF. Arm it — free during the beta:\n\n  1. Discord → channel settings → Integrations → Webhooks → New\n  2. npx getleash watchdog --discord <webhook-url>\n`,
+          : `\n🐕 Watchdog is OFF. Arm it (free):\n\n  1. Discord → channel settings → Integrations → Webhooks → New\n  2. npx getleash watchdog --discord <webhook-url>\n`,
       )
     } catch (err: any) {
       console.error('leash: could not reach the cloud —', err?.message ?? err)
@@ -296,8 +296,7 @@ Free during the beta ($15/mo after). Two steps, ~30 seconds:
     fs.writeFileSync(CLOUD_CONFIG(), JSON.stringify(raw, null, 2) + '\n')
   } catch {}
   console.log(`
-🐕 Watchdog is ON — free during the beta ($15/mo after, you'll never be
-charged without saying yes). From now on, the moment a push shows a NEW
+🐕 Watchdog is ON. From now on, the moment a push shows a NEW
 problem — cron gone zombie, workflow failing, runaway loop — it barks in
 your Discord channel with a link to the fleet:
 
